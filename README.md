@@ -6,7 +6,7 @@
 
 ```bash
 # Clone the repo
-git clone https://github.com/nextlevelbuilder/goclaw-wizards.git
+git clone https://github.com/therichardngai-code/goclaw-wizards.git
 cd goclaw-wizards
 
 # Run wizard (coming soon)
@@ -28,25 +28,27 @@ The GoClaw Wizard simplifies deploying GoClaw, a multi-channel AI gateway, by:
 
 ```
 goclaw-wizards/
-├── README.md                    # This file
-├── wizard.sh                    # Entry point (coming soon)
-├── lib/
-│   ├── colors.sh               # ANSI colors, spinner, banner UI
-│   ├── detect.sh               # OS & Docker detection
-│   ├── deps.sh                 # Dependency validation
-│   ├── ports.sh                # Port allocation & conflict detection
-│   ├── secrets.sh              # Cross-platform secrets storage
-│   └── wizard-ui.sh            # Interactive prompts
-├── scripts/                     # Python utilities (coming soon)
-│   ├── identity-wizard.py       # LLM-based agent identity generator
-│   └── provision-agent.py       # GoClaw WebSocket RPC provisioning
-├── templates/                   # Template files (coming soon)
-│   ├── soul-default.md.tpl
-│   └── identity-default.md.tpl
-└── docs/
-    ├── design.md               # Full technical design (v2.0)
-    ├── architecture-diagram.md # System architecture
-    └── feature-coverage.md     # Feature compatibility matrix
+├── README.md                      # This file
+├── wizard.sh                      # Entry point (coming soon)
+├── lib/                           # Shell library modules (8 modules, ~1100 LOC)
+│   ├── colors.sh                  # ANSI colors, spinner, banner UI
+│   ├── detect.sh                  # OS & Docker detection
+│   ├── deps.sh                    # Dependency validation
+│   ├── ports.sh                   # Port allocation & conflict detection
+│   ├── secrets.sh                 # Cross-platform secrets storage
+│   ├── wizard-ui.sh               # Interactive prompts (select, multiselect, confirm, etc.)
+│   ├── compose.sh                 # Docker Compose overlay builder
+│   ├── stack.sh                   # Stack lifecycle: clone, .env, health checks, state
+│   └── bootstrap.sh               # Post-provision: agent provisioning, docker restart, welcome
+├── scripts/                       # Python utilities (~150 LOC)
+│   └── provision-agent.py         # GoClaw WebSocket RPC: create/delete agents & channels
+├── templates/                     # Template files (~25 LOC)
+│   ├── soul-default.md.tpl        # Fallback SOUL.md template
+│   └── identity-default.md.tpl    # Fallback IDENTITY.md template
+└── docs/                          # Documentation (~1600 LOC)
+    ├── design.md                  # Full technical design (v2.0)
+    ├── architecture-diagram.md    # System architecture diagrams
+    └── feature-coverage.md        # Feature compatibility matrix
 ```
 
 ## Features
@@ -171,7 +173,7 @@ All state stored in `~/.goclaw-wizard/`:
 │   ├── default/
 │   │   ├── .secrets              # Encrypted credentials (chmod 600)
 │   │   ├── state.json            # Stack metadata
-│   │   ├── agents/               # Agent SOUL.md, IDENTITY.md
+│   │   ├── agents/               # Agent SOUL.md, IDENTITY.md, USER.md
 │   │   └── goclaw/               # Shallow GoClaw source clone
 │   └── {stack-name}/             # Additional stacks
 └── wizard.log                     # Diagnostic log
@@ -185,14 +187,24 @@ All state stored in `~/.goclaw-wizard/`:
 
 ## Implementation Status
 
-| Phase | Status |
-|-------|--------|
-| Phase 1 — Core QuickStart (MVP) | 🔨 In Progress |
-| Phase 2 — Full Flow + All Channels | ⏳ Planned |
-| Phase 3 — Optional Features | ⏳ Planned |
-| Phase 4 — Stack Management | ⏳ Planned |
-| Phase 5 — Doctor + Non-Interactive | ⏳ Planned |
-| Phase 6 — Upgrade + Polish | ⏳ Planned |
+| Phase | Status | Coverage |
+|-------|--------|----------|
+| Phase 1 — Core QuickStart (MVP) | 🔨 In Progress | 70% — library modules complete, main script coming |
+| Phase 2 — Full Flow + All Channels | ⏳ Planned | — |
+| Phase 3 — Optional Features | ⏳ Planned | — |
+| Phase 4 — Stack Management | ⏳ Planned | — |
+| Phase 5 — Doctor + Non-Interactive | ⏳ Planned | — |
+| Phase 6 — Upgrade + Polish | ⏳ Planned | — |
+
+## Code Statistics
+
+```
+Library modules (lib/):       ~1100 LOC (8 shell scripts)
+Python utilities (scripts/):  ~150 LOC
+Templates (templates/):       ~25 LOC
+Documentation (docs/):        ~1600 LOC
+Total:                        ~2875 LOC
+```
 
 ## Contributing
 
@@ -205,4 +217,5 @@ Same as GoClaw (see parent repo).
 ---
 
 **Status**: Actively developed  
-**Latest Design**: v2.0 (2026-03-01)
+**Latest Design**: v2.0 (2026-03-01)  
+**Repository**: https://github.com/therichardngai-code/goclaw-wizards

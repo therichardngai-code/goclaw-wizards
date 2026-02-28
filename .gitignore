@@ -30,8 +30,6 @@ env/
 *.swp
 *.swo
 *~
-.DS_Store
-Thumbs.db
 
 # Shell/Bash
 *.bak
@@ -53,8 +51,7 @@ logs/
 .DS_Store
 .AppleDouble
 .LSOverride
-*.swp
-*.swo
+Thumbs.db
 
 # Node (if any web components added later)
 node_modules/
