@@ -63,14 +63,14 @@ class GoclawWS:
     def __init__(self, host, port, token):
         self._ws = _WS(host, port)
         self._id = 0
-        self._ws.send(json.dumps({"method": "connect", "params": {"token": token, "user_id": "wizard"}}))
+        self._ws.send(json.dumps({"type": "connect", "params": {"token": token, "user_id": "wizard"}}))
         r = json.loads(self._ws.recv())
         if not r.get("ok"):
             raise RuntimeError(f"Auth failed: {r}")
 
     def call(self, method, params):
         self._id += 1
-        self._ws.send(json.dumps({"id": self._id, "method": method, "params": params}))
+        self._ws.send(json.dumps({"id": self._id, "type": "call", "method": method, "params": params}))
         r = json.loads(self._ws.recv())
         if r.get("ok") is False:
             raise RuntimeError(f"{method} failed: {r.get('error', r)}")

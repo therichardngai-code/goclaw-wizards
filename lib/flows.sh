@@ -149,7 +149,13 @@ launch_stack() {
 
   prompt_progress "Waiting for gateway..." \
     stack_health_check "$STACK" "$PORT_API" 20 5 || {
-    print_error "Health check failed. Run: bash wizard.sh doctor --name ${STACK}"; exit 1; }
+    print_error "Health check failed. Run: bash wizard.sh doctor --name ${STACK}"
+    local _st; _st=$(docker inspect "goclaw-${STACK}-goclaw-1" --format '{{.State.Status}}' 2>/dev/null || echo "unknown")
+    if [[ "$_st" != "running" ]]; then
+      printf "  ${DIM}Gateway logs (last 20 lines):${NC}\n"
+      docker logs --tail 20 "goclaw-${STACK}-goclaw-1" 2>&1 | sed 's/^/  │  /' || true
+    fi
+    exit 1; }
 
   prompt_progress "Warming up LLM gateway..." \
     stack_warmup_llm "$STACK" "$PORT_API" "$GOCLAW_GATEWAY_TOKEN" || true

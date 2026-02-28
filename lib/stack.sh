@@ -70,7 +70,9 @@ stack_health_check() {
     local st; st=$(docker inspect "goclaw-${stack}-goclaw-1" \
       --format '{{.State.Status}}' 2>/dev/null || echo "unknown")
     if [[ "$st" =~ exited|dead ]]; then
-      print_error "Container exited unexpectedly. Run: wizard.sh logs --name ${stack}"
+      # Write directly to fd 2 — avoids spinner \r overwrite of print_error
+      printf "\n  \033[0;31m✗\033[0m  Container goclaw-%s-goclaw-1 exited. Last logs:\n" "$stack" >&2
+      docker logs --tail 20 "goclaw-${stack}-goclaw-1" 2>&1 | sed 's/^/  │  /' >&2 || true
       return 1
     fi
     sleep "$interval"
