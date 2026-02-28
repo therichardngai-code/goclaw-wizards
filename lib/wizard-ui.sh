@@ -44,8 +44,8 @@ prompt_select() {
   while true; do
     local k; k=$(_read_key)
     case "$k" in
-      $'\x1b[A'|k) (( _s > 0 )) && (( _s-- )) ;;
-      $'\x1b[B'|j) (( _s < _n-1 )) && (( _s++ )) ;;
+      $'\x1b[A'|k) [[ $_s -gt 0 ]]       && (( _s-- )) || true ;;
+      $'\x1b[B'|j) [[ $_s -lt $((_n-1)) ]] && (( _s++ )) || true ;;
       $'\x03') _wiz_cancel ;;
       '') break ;;
     esac
@@ -66,6 +66,7 @@ prompt_multiselect() {
   for (( i=0; i<_n; i++ )); do _sel[$i]=0; done
   local _cur=0 _flt="" _rl=0
 
+  # Render menu to stdout directly (not piped)
   _msr() {
     printf "  ${CYAN}◇${NC}  ${BOLD}%s${NC}  ${DIM}(space=toggle, type to filter, enter=confirm)${NC}\n" "$_lbl"
     printf "  ${CYAN}│${NC}  Filter: ${YELLOW}%s${NC}\n" "$_flt"
@@ -84,11 +85,18 @@ prompt_multiselect() {
     done
     local cnt=0; for i in "${_sel[@]}"; do cnt=$(( cnt + i )); done
     printf "  ${CYAN}│${NC}  ${DIM}%d selected${NC}\n" "$cnt"
-    echo "${#vis[@]}"  # last line: visible count (captured externally)
+  }
+  # Count visible items (run in subshell to capture, does not render)
+  _msr_count() {
+    local vis=() i; for (( i=0; i<_n; i++ )); do
+      local lc="${_mo[$i],,}" lf="${_flt,,}"
+      [[ -z "$_flt" || "$lc" == *"$lf"* ]] && vis+=("$i")
+    done
+    echo "${#vis[@]}"
   }
 
   tput civis 2>/dev/null||true
-  _rl=$(( $(_msr | tail -1) + 3 ))
+  _msr; _rl=$(( $(_msr_count) + 3 ))
   while true; do
     local k; k=$(_read_key)
     local vis_now=(); local i; for (( i=0; i<_n; i++ )); do
@@ -97,8 +105,8 @@ prompt_multiselect() {
     done
     local nv=${#vis_now[@]}
     case "$k" in
-      $'\x1b[A'|k) (( _cur > 0 )) && (( _cur-- )) ;;
-      $'\x1b[B'|j) (( _cur < nv-1 )) && (( _cur++ )) ;;
+      $'\x1b[A'|k) [[ $_cur -gt 0 ]]        && (( _cur-- )) || true ;;
+      $'\x1b[B'|j) [[ $_cur -lt $((nv-1)) ]] && (( _cur++ )) || true ;;
       ' ') if [[ $nv -gt 0 && $_cur -lt $nv ]]; then
              local idx="${vis_now[$_cur]}"
              _sel[$idx]=$(( 1 - _sel[$idx] ))
@@ -111,7 +119,7 @@ prompt_multiselect() {
         else printf "  ${YELLOW}⚠${NC}  Select at least %d option(s)\n" "$_min"; fi ;;
       [[:print:]]) _flt+="$k"; _cur=0 ;;
     esac
-    _erase_lines "$_rl"; _rl=$(( $(_msr | tail -1) + 3 ))
+    _erase_lines "$_rl"; _msr; _rl=$(( $(_msr_count) + 3 ))
   done
   tput cnorm 2>/dev/null||true; _erase_lines "$_rl"
   local result="" i; for (( i=0; i<_n; i++ )); do
