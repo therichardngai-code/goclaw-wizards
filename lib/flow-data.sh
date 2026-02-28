@@ -12,9 +12,9 @@ PROVIDER_LABELS=(
 )
 
 PROVIDER_HINTS=(
-  "claude-sonnet-4-5" "gpt-4o" "gemini-2.0-flash"
-  "100+ models via 1 key" "llama-3.3-70b" "deepseek-chat" "minimax-01" "mistral-large"
-  "grok-2" "command-r-plus" "llama-3.1-sonar" "qwen-max" "OpenAI-compatible API"
+  "claude-sonnet-4-6" "gpt-5.2" "gemini-2.5-flash"
+  "100+ models via 1 key" "llama-3.3-70b" "deepseek-chat" "MiniMax-M2" "mistral-large-3"
+  "grok-3" "command-a-03-2025" "sonar-pro" "qwen-max" "OpenAI-compatible API"
 )
 
 # Maps provider index → env var prefix used in GOCLAW_{ENV}_API_KEY
@@ -25,10 +25,10 @@ PROVIDER_ENV=(
 
 # Default model for each provider (empty = user must specify)
 PROVIDER_MODELS=(
-  claude-sonnet-4-5-20250929 gpt-4o gemini-2.0-flash
-  "anthropic/claude-sonnet-4-5-20250929" llama-3.3-70b-versatile deepseek-chat
-  minimax-01 mistral-large-latest grok-2 command-r-plus
-  llama-3.1-sonar-large-128k-online qwen-max ""
+  claude-sonnet-4-6 gpt-5.2 gemini-2.5-flash
+  "anthropic/claude-sonnet-4-6" llama-3.3-70b-versatile deepseek-chat
+  MiniMax-M2 mistral-large-latest grok-3 command-a-03-2025
+  sonar-pro qwen-max ""
 )
 
 # ── Messaging Channel data ────────────────────────────────────────────────────

@@ -116,7 +116,9 @@ prompt_multiselect() {
       '')
         local cnt=0; for i in "${_sel[@]}"; do cnt=$(( cnt + i )); done
         if [[ $cnt -ge $_min ]]; then break
-        else printf "  ${YELLOW}⚠${NC}  Select at least %d option(s)\n" "$_min"; fi ;;
+        else printf "  ${YELLOW}⚠${NC}  Select at least %d option(s)\n" "$_min"
+             (( _rl++ )) || true  # account for warning line in next _erase_lines
+        fi ;;
       [[:print:]]) _flt+="$k"; _cur=0 ;;
     esac
     _erase_lines "$_rl"; _msr; _rl=$(( $(_msr_count) + 3 ))
