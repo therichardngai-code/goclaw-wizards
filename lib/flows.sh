@@ -121,7 +121,7 @@ confirm_summary() {
   [[ "$FEATURES" == *"ui"* ]] && printf "  ${CYAN}│${NC}  Dashboard: http://127.0.0.1:%s\n" "$PORT_UI"
   printf "  ${CYAN}│${NC}\n"
   local ok; prompt_confirm ok "Launch stack?" true
-  [[ "$ok" != "true" ]] && print_info "Cancelled." && exit 0
+  [[ "$ok" == "true" ]] || { print_info "Cancelled."; exit 0; }
 }
 
 # ── Launch sequence ───────────────────────────────────────────────────────────
