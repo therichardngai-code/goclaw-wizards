@@ -159,6 +159,7 @@ launch_stack() {
     python3 "${WIZARD_DIR}/scripts/identity-wizard.py" \
       --mode install --port "$PORT_API" --token "$GOCLAW_GATEWAY_TOKEN" --model "$MODEL" \
       --agent-name "$AGENT_NAME" --agent-purpose "$AGENT_PURPOSE" \
+      --agent-personality "${AGENT_PERSONALITY:-}" --agent-language "${AGENT_LANGUAGE:-English}" \
       --owner-name "${OWNER_NAME:-}" --owner-language "${OWNER_LANG:-English}" \
       --output-dir "$agents_dir" --templates-dir "${WIZARD_DIR}/templates"
 
