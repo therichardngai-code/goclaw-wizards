@@ -1,0 +1,76 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.venv
+venv/
+ENV/
+env/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Shell/Bash
+*.bak
+*.tmp
+
+# GoClaw Wizard state (local only)
+~/.goclaw-wizard/
+.secrets
+state.json
+wizard.log
+
+# Docker
+.dockerignore
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+*.swp
+*.swo
+
+# Node (if any web components added later)
+node_modules/
+package-lock.json
+yarn.lock
+
+# Temporary test files
+test-ck/
+test-*.sh
+
+# Coverage
+coverage/
+.coverage
+
+# Misc
+.repomix
+repomix-output.xml
