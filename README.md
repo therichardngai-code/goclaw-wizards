@@ -9,7 +9,7 @@
 git clone https://github.com/therichardngai-code/goclaw-wizards.git
 cd goclaw-wizards
 
-# Run wizard (coming soon)
+# Run wizard
 bash wizard.sh
 ```
 
