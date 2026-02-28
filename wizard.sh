@@ -9,7 +9,7 @@ WIZARD_VERSION="1.0.0"
 export WIZARD_DIR WIZARD_VERSION
 
 # Source all libraries (order matters: colors first, then deps)
-for _lib in colors detect deps wizard-ui secrets ports compose stack bootstrap flow-data flows; do
+for _lib in colors detect deps wizard-ui secrets ports compose stack bootstrap flow-data flows commands; do
   # shellcheck source=/dev/null
   source "${WIZARD_DIR}/lib/${_lib}.sh"
 done
@@ -125,7 +125,7 @@ main() {
     stop)          cmd_stop ;;
     restart)       cmd_restart ;;
     status)        cmd_status ;;
-    logs)          cmd_logs "$@" ;;
+    logs)          cmd_logs ;;
     upgrade)       cmd_upgrade ;;
     uninstall)     cmd_uninstall ;;
     doctor)
@@ -135,18 +135,8 @@ main() {
   esac
 }
 
-# ── Phase 7-9 command stubs (replaced when those phases are implemented) ──────
-_phase_stub() { print_error "'$1' will be available in a later phase. See plan phase-07+."; exit 1; }
-cmd_add_agent()    { _phase_stub "add-agent"; }
-cmd_remove_agent() { _phase_stub "remove-agent"; }
-cmd_channels_add() { _phase_stub "channels add"; }
-cmd_start()        { _phase_stub "start"; }
-cmd_stop()         { _phase_stub "stop"; }
-cmd_restart()      { _phase_stub "restart"; }
-cmd_status()       { _phase_stub "status"; }
-cmd_logs()         { _phase_stub "logs"; }
-cmd_upgrade()      { _phase_stub "upgrade"; }
-cmd_uninstall()    { _phase_stub "uninstall"; }
+# ── Phase 9 stub (replaced when non-interactive phase is implemented) ─────────
+_phase_stub() { print_error "'$1' not yet available. See plan phase-09."; exit 1; }
 pre_install_reset(){ _phase_stub "--reset"; }
 
 main "$@"
