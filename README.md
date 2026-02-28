@@ -180,6 +180,7 @@ All state stored in `~/.goclaw-wizard/`:
 ```
 
 ## Documentation
+n**[plan.md](./docs/plan.md)** — Implementation roadmap and progress tracking
 
 - **[design.md](./docs/design.md)** — Complete technical specification (v2.0)
 - **[architecture-diagram.md](./docs/architecture-diagram.md)** — System design diagrams

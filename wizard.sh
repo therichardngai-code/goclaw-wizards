@@ -9,7 +9,7 @@ WIZARD_VERSION="1.0.0"
 export WIZARD_DIR WIZARD_VERSION
 
 # Source all libraries (order matters: colors first, then deps)
-for _lib in colors detect deps wizard-ui secrets ports compose stack bootstrap flow-data flows commands; do
+for _lib in colors detect deps wizard-ui secrets ports compose stack bootstrap flow-data flows commands non-interactive; do
   # shellcheck source=/dev/null
   source "${WIZARD_DIR}/lib/${_lib}.sh"
 done
@@ -27,6 +27,7 @@ RESET_SCOPE="config"
 YES=false
 AGENT_KEY=""
 REUSE_SECRETS=false
+STATUS_ALL=false
 
 # Non-interactive / flag-passthrough vars (all prefixed FLAG_)
 FLAG_PROVIDER="" FLAG_API_KEY="" FLAG_MODEL="" FLAG_CHANNELS=""
@@ -108,23 +109,27 @@ show_help() {
 main() {
   parse_args "$@"
   setup_cancel_trap
-  print_banner
+  [[ "$NON_INTERACTIVE" != "true" ]] && print_banner
 
   case "$COMMAND" in
     install)
       [[ "$RESET" == "true" ]] && pre_install_reset "$STACK"
-      case "$FLOW" in
-        quickstart) quickstart_flow ;;
-        full)       full_flow ;;
-        *) print_error "Unknown flow: ${FLOW}. Use: quickstart | full"; exit 1 ;;
-      esac ;;
+      if [[ "$NON_INTERACTIVE" == "true" ]]; then
+        non_interactive_install
+      else
+        case "$FLOW" in
+          quickstart) quickstart_flow ;;
+          full)       full_flow ;;
+          *) print_error "Unknown flow: ${FLOW}. Use: quickstart | full"; exit 1 ;;
+        esac
+      fi ;;
     add-agent)     cmd_add_agent ;;
     remove-agent)  cmd_remove_agent ;;
     channels-add|channels) cmd_channels_add ;;
     start)         cmd_start ;;
     stop)          cmd_stop ;;
     restart)       cmd_restart ;;
-    status)        cmd_status ;;
+    status)        [[ "$STATUS_ALL" == "true" ]] && cmd_status_all || cmd_status ;;
     logs)          cmd_logs ;;
     upgrade)       cmd_upgrade ;;
     uninstall)     cmd_uninstall ;;
@@ -135,8 +140,5 @@ main() {
   esac
 }
 
-# ── Phase 9 stub (replaced when non-interactive phase is implemented) ─────────
-_phase_stub() { print_error "'$1' not yet available. See plan phase-09."; exit 1; }
-pre_install_reset(){ _phase_stub "--reset"; }
 
 main "$@"
