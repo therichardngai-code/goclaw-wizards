@@ -163,6 +163,9 @@ launch_stack() {
       --owner-name "${OWNER_NAME:-}" --owner-language "${OWNER_LANG:-English}" \
       --output-dir "$agents_dir" --templates-dir "${WIZARD_DIR}/templates"
 
+  # Write initial state.json (ports + meta) NOW — bootstrap_agent reads ports.api from it
+  state_write "$STACK" "$(build_state_json)"
+
   local user_file_arg=""; [[ -f "${agents_dir}/USER.md" ]] && user_file_arg="${agents_dir}/USER.md"
   prompt_progress "Provisioning agent..." \
     bootstrap_agent "$STACK" "$AGENT_KEY" "$AGENT_NAME" "$CHANNELS_JSON" \
@@ -175,7 +178,6 @@ import json, datetime
 ch = json.loads(r'''${CHANNELS_JSON}''')
 print(json.dumps({'key':'${AGENT_KEY}','name':'${AGENT_NAME}','type':'predefined',
   'channels':[c['type'] for c in ch],'created_at':datetime.datetime.utcnow().isoformat()+'Z'}))" 2>/dev/null)
-  state_write "$STACK" "$(build_state_json)"
   [[ -n "$agent_entry" ]] && state_update_agents "$STACK" "$agent_entry"
 
   prompt_outro "$(printf '%s is live!\n\n  Gateway:   http://127.0.0.1:%s\n  Dashboard: http://127.0.0.1:%s\n\n  Add agent: bash wizard.sh add-agent --name %s\n  Diagnose:  bash wizard.sh doctor  --name %s' \
