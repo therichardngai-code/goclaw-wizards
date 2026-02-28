@@ -8,14 +8,16 @@ _wiz_cancel() { tput cnorm 2>/dev/null||true; printf "\n\n  Setup cancelled.\n\n
 prompt_intro() { printf "\n  ${CYAN}┌${NC}  ${BOLD}%s${NC}\n  ${CYAN}│${NC}\n" "$1"; }
 prompt_outro() { printf "  ${CYAN}│${NC}\n  ${GREEN}└${NC}  ${BOLD}%s${NC}\n\n" "$1"; }
 
-# Read a single keypress (handles escape sequences for arrow keys)
+# Read a single keypress — stores result in global _WIZARD_KEY (no subshell).
+# Calling via $() drops terminal raw-mode access; direct call is required.
+_WIZARD_KEY=""
 _read_key() {
-  local key rest
-  IFS= read -r -s -n1 key 2>/dev/null
-  if [[ "$key" == $'\x1b' ]]; then
-    IFS= read -r -s -n2 -t 0.15 rest 2>/dev/null||true; key+="${rest:-}"
+  _WIZARD_KEY=""
+  local _rk_rest
+  IFS= read -r -s -n1 _WIZARD_KEY 2>/dev/null
+  if [[ "$_WIZARD_KEY" == $'\x1b' ]]; then
+    IFS= read -r -s -n2 -t 0.15 _rk_rest 2>/dev/null||true; _WIZARD_KEY+="${_rk_rest:-}"
   fi
-  printf '%s' "$key"
 }
 
 # Erase N lines above cursor
@@ -42,7 +44,7 @@ prompt_select() {
   }
   tput civis 2>/dev/null||true; _psr
   while true; do
-    local k; k=$(_read_key)
+    _read_key; local k="$_WIZARD_KEY"
     case "$k" in
       $'\x1b[A'|k) [[ $_s -gt 0 ]]       && (( _s-- )) || true ;;
       $'\x1b[B'|j) [[ $_s -lt $((_n-1)) ]] && (( _s++ )) || true ;;
@@ -98,7 +100,7 @@ prompt_multiselect() {
   tput civis 2>/dev/null||true
   _msr; _rl=$(( $(_msr_count) + 3 ))
   while true; do
-    local k; k=$(_read_key)
+    _read_key; local k="$_WIZARD_KEY"
     local vis_now=(); local i; for (( i=0; i<_n; i++ )); do
       local lc="${_mo[$i],,}" lf="${_flt,,}"
       [[ -z "$_flt" || "$lc" == *"$lf"* ]] && vis_now+=("$i")
