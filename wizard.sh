@@ -8,6 +8,14 @@ WIZARD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WIZARD_VERSION="1.0.0"
 export WIZARD_DIR WIZARD_VERSION
 
+# Data directory — kept outside the wizard source tree.
+# Override via env var WIZARD_HOME before running wizard.sh.
+# Guard: if WIZARD_HOME somehow points inside WIZARD_DIR, reset to safe default.
+WIZARD_HOME="${WIZARD_HOME:-${HOME}/.goclaw-wizard}"
+[[ "$WIZARD_HOME" == "$WIZARD_DIR" || "$WIZARD_HOME" == "$WIZARD_DIR/"* ]] \
+  && WIZARD_HOME="${HOME}/.goclaw-wizard"
+export WIZARD_HOME
+
 # Source all libraries (order matters: colors first, then deps)
 for _lib in colors detect deps wizard-ui secrets ports compose stack bootstrap flow-data flows commands non-interactive; do
   # shellcheck source=/dev/null
