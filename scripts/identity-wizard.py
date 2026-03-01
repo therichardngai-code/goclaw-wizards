@@ -78,6 +78,7 @@ def call_llm(host, port, token, model, messages, timeout=60):
     req = Request(url, data=body, headers={
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
+        "X-GoClaw-User-Id": "wizard",  # required in managed mode
     })
     with urlopen(req, timeout=timeout) as resp:
         data = json.loads(resp.read())

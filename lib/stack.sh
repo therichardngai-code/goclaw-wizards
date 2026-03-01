@@ -88,6 +88,7 @@ stack_warmup_llm() {
       -X POST "http://127.0.0.1:${port}/v1/chat/completions" \
       -H "Authorization: Bearer ${token}" \
       -H "Content-Type: application/json" \
+      -H "X-GoClaw-User-Id: wizard" \
       -d '{"model":"default","messages":[{"role":"user","content":"Say OK"}],"max_tokens":5}' \
       >/dev/null 2>&1 && return 0
     sleep 10
