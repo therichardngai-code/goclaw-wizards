@@ -1,7 +1,17 @@
 #!/usr/bin/env python3
-# GoClaw agent + channel provisioning via WebSocket RPC.
+# GoClaw agent + channel provisioning via WebSocket RPC (Protocol v3).
 # Python 3.8+, stdlib only. NEVER use agent_type "open". ALWAYS dm_policy "allowlist".
-import argparse, base64, json, os, socket, struct, sys
+#
+# Protocol v3 wire format (pkg/protocol/frames.go):
+#   Request:  {"type": "req", "id": "<str>", "method": "<name>", "params": {...}}
+#   Response: {"type": "res", "id": "<str>", "ok": bool, "payload": {...}}
+#   First request MUST be method="connect" for auth.
+#
+# Key design constraint:
+#   channels.instances.create requires agent_id as a DB UUID (uuid.Parse in server).
+#   agents.create WS response only returns the agent key (not UUID).
+#   Solution: after WS agents.create, fetch UUID via HTTP GET /v1/agents/{key}.
+import argparse, base64, json, os, socket, struct, sys, urllib.request
 
 
 class _WS:
@@ -59,21 +69,18 @@ class _WS:
 
 
 class GoclawWS:
-    """Protocol v3 WebSocket RPC client for GoClaw gateway.
-    Frame format: {"type": "req", "id": "<str>", "method": "<name>", "params": {...}}
-    First request MUST be method "connect" for authentication.
-    """
+    """Protocol v3 WebSocket RPC client for GoClaw gateway."""
     def __init__(self, host, port, token):
         self._ws = _WS(host, port)
         self._id = 0
-        # Auth: first frame must be method=connect with token + user_id
+        # First request MUST be method=connect (server/gateway/router.go)
         r = self.call("connect", {"token": token, "user_id": "wizard"})
         if not r.get("ok"):
             raise RuntimeError(f"Auth failed: {r}")
 
     def call(self, method, params):
         self._id += 1
-        # id must be a string (protocol v3 spec: RequestFrame.ID is string)
+        # id MUST be a string — RequestFrame.ID is string in protocol v3
         self._ws.send(json.dumps({"type": "req", "id": str(self._id), "method": method, "params": params}))
         r = json.loads(self._ws.recv())
         if r.get("ok") is False:
@@ -83,46 +90,95 @@ class GoclawWS:
     def close(self): self._ws.close()
 
 
-def create_agent(ws, name, key):
-    r = ws.call("agents.create", {"name": name, "agent_key": key, "agent_type": "predefined"})
+def get_agent_uuid(host, port, token, agent_key):
+    """Fetch agent DB UUID via HTTP REST GET /v1/agents/{key}.
+
+    agents.create WS returns only the agent key. channels.instances.create
+    requires a UUID (server calls uuid.Parse on agent_id). This bridges the gap.
+    HTTP handleGet accepts key or UUID: tries uuid.Parse first, falls back to GetByKey.
+    """
+    req = urllib.request.Request(
+        f"http://{host}:{port}/v1/agents/{agent_key}",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "X-GoClaw-User-Id": "wizard",
+        }
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+    except Exception as e:
+        raise RuntimeError(f"Failed to fetch UUID for agent key '{agent_key}': {e}")
+    agent_uuid = data.get("id")
+    if not agent_uuid:
+        raise RuntimeError(f"No 'id' field in agent response for key '{agent_key}': {data}")
+    return str(agent_uuid)
+
+
+def create_agent(ws, name):
+    """Create predefined agent. Returns agent key as normalised by server."""
+    # Note: agent_key param does NOT exist in agents.create — server derives key
+    # from name via config.NormalizeAgentID(name). Use returned agentId as key.
+    r = ws.call("agents.create", {"name": name, "agent_type": "predefined"})
     p = r.get("payload", {})
-    return str(p.get("id") or p.get("agent_id") or key)
+    return p.get("agentId") or name  # agentId = server-normalised key
 
-def seed_files(ws, key, soul, identity, user=None):
+
+def seed_files(ws, agent_key, soul, identity, user=None):
+    """Seed SOUL.md, IDENTITY.md, and optionally USER.md.
+    agents.files.set uses agentId = agent key (resolves via GetByKey internally).
+    """
     for fname, content in [("SOUL.md", soul), ("IDENTITY.md", identity)]:
-        ws.call("agents.files.set", {"agentId": key, "name": fname, "content": content})
+        ws.call("agents.files.set", {"agentId": agent_key, "name": fname, "content": content})
     if user:
-        ws.call("agents.files.set", {"agentId": key, "name": "USER.md", "content": user})
+        ws.call("agents.files.set", {"agentId": agent_key, "name": "USER.md", "content": user})
 
-def create_channel(ws, agent_id, key, ch):
+
+def create_channel(ws, host, port, token, agent_key, ch):
+    """Create channel instance for an agent.
+    Fetches agent UUID via HTTP because channels.instances.create requires UUID
+    (server: uuid.Parse(params.AgentID) in channel_instances.go:handleCreate).
+    """
+    agent_uuid = get_agent_uuid(host, port, token, agent_key)
     ws.call("channels.instances.create", {
-        "name": f"{key}-{ch['type']}",
-        "display_name": ch.get("display_name", f"{key} ({ch['type']})"),
-        "channel_type": ch["type"], "agent_id": agent_id,
+        "name": f"{agent_key}-{ch['type']}",
+        "display_name": ch.get("display_name", f"{agent_key} ({ch['type']})"),
+        "channel_type": ch["type"],
+        "agent_id": agent_uuid,  # must be UUID
         "credentials": ch["credentials"],
         "config": {"dm_policy": "allowlist", "allow_from": ch.get("owner_ids", [])},
         "enabled": True,
     })
 
+
 def list_channels_for_key(ws, key):
+    """List channel instances whose name starts with {key}-."""
     r = ws.call("channels.instances.list", {})
-    instances = r.get("payload") or r.get("instances") or []
+    # Response: {"type":"res","ok":true,"payload":{"instances":[...]}}
+    instances = r.get("payload", {}).get("instances", [])
     return [i for i in instances if i.get("name", "").startswith(f"{key}-")]
 
+
 def delete_agent(ws, key):
+    """Delete all channel instances for agent, then delete agent.
+    agents.delete uses agentId (key), not agentKey (agents.go:handleDelete).
+    """
     for inst in list_channels_for_key(ws, key):
-        ws.call("channels.instances.delete", {"id": inst["id"]})
-    ws.call("agents.delete", {"agentKey": key})
+        ws.call("channels.instances.delete", {"id": str(inst["id"])})
+    ws.call("agents.delete", {"agentId": key})
 
 
 def main():
     p = argparse.ArgumentParser(description="GoClaw agent provisioning")
-    p.add_argument("--action", required=True, choices=["create","delete","add-channel","list-channels"])
+    p.add_argument("--action", required=True, choices=["create", "delete", "add-channel", "list-channels"])
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, required=True)
     p.add_argument("--token", required=True)
-    p.add_argument("--agent-name"); p.add_argument("--agent-key")
-    p.add_argument("--soul-file");  p.add_argument("--identity-file"); p.add_argument("--user-file")
+    p.add_argument("--agent-name")
+    p.add_argument("--agent-key")
+    p.add_argument("--soul-file")
+    p.add_argument("--identity-file")
+    p.add_argument("--user-file")
     p.add_argument("--channels-json", default="[]")
     args = p.parse_args()
 
@@ -132,25 +188,31 @@ def main():
             soul     = open(args.soul_file).read()     if args.soul_file     else ""
             identity = open(args.identity_file).read() if args.identity_file else ""
             user     = open(args.user_file).read()     if args.user_file     else None
-            agent_id = create_agent(ws, args.agent_name, args.agent_key)
-            seed_files(ws, args.agent_key, soul, identity, user)
+            # Server derives key from name; use returned key for all subsequent calls
+            agent_key = create_agent(ws, args.agent_name)
+            seed_files(ws, agent_key, soul, identity, user)
             for ch in json.loads(args.channels_json):
-                create_channel(ws, agent_id, args.agent_key, ch)
-            print(json.dumps({"ok": True, "agent_id": agent_id}))
+                create_channel(ws, args.host, args.port, args.token, agent_key, ch)
+            print(json.dumps({"ok": True, "agent_id": agent_key}))
+
         elif args.action == "delete":
             delete_agent(ws, args.agent_key)
             print(json.dumps({"ok": True}))
+
         elif args.action == "add-channel":
             for ch in json.loads(args.channels_json):
-                create_channel(ws, args.agent_key, args.agent_key, ch)
+                create_channel(ws, args.host, args.port, args.token, args.agent_key, ch)
             print(json.dumps({"ok": True}))
+
         elif args.action == "list-channels":
             print(json.dumps({"ok": True, "channels": list_channels_for_key(ws, args.agent_key)}))
+
     except Exception as exc:
         print(json.dumps({"ok": False, "error": str(exc)}), file=sys.stderr)
         sys.exit(1)
     finally:
         ws.close()
+
 
 if __name__ == "__main__":
     main()
