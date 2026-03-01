@@ -6,13 +6,11 @@ import argparse, base64, json, os, socket, struct, sys
 
 class _WS:
     """Minimal RFC-6455 WebSocket client — plain TCP, localhost only."""
-    def __init__(self, host, port, token=None):
+    def __init__(self, host, port):
         self._s = socket.create_connection((host, port), timeout=30)
         key = base64.b64encode(os.urandom(16)).decode()
-        # Auth via URL query param — gateway validates token at HTTP upgrade level
-        path = f"/ws?token={token}" if token else "/ws"
         self._s.sendall((
-            f"GET {path} HTTP/1.1\r\nHost: {host}:{port}\r\n"
+            f"GET /ws HTTP/1.1\r\nHost: {host}:{port}\r\n"
             f"Upgrade: websocket\r\nConnection: Upgrade\r\n"
             f"Sec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n"
         ).encode())
@@ -61,15 +59,22 @@ class _WS:
 
 
 class GoclawWS:
-    """JSON-RPC over WebSocket for GoClaw gateway."""
+    """Protocol v3 WebSocket RPC client for GoClaw gateway.
+    Frame format: {"type": "req", "id": "<str>", "method": "<name>", "params": {...}}
+    First request MUST be method "connect" for authentication.
+    """
     def __init__(self, host, port, token):
-        # Token passed in URL — no separate auth frame needed
-        self._ws = _WS(host, port, token)
+        self._ws = _WS(host, port)
         self._id = 0
+        # Auth: first frame must be method=connect with token + user_id
+        r = self.call("connect", {"token": token, "user_id": "wizard"})
+        if not r.get("ok"):
+            raise RuntimeError(f"Auth failed: {r}")
 
     def call(self, method, params):
         self._id += 1
-        self._ws.send(json.dumps({"id": self._id, "type": "call", "method": method, "params": params}))
+        # id must be a string (protocol v3 spec: RequestFrame.ID is string)
+        self._ws.send(json.dumps({"type": "req", "id": str(self._id), "method": method, "params": params}))
         r = json.loads(self._ws.recv())
         if r.get("ok") is False:
             raise RuntimeError(f"{method} failed: {r.get('error', r)}")
