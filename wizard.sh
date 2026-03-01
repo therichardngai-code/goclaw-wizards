@@ -43,6 +43,7 @@ FLAG_TELEGRAM_TOKEN="" FLAG_DISCORD_TOKEN=""
 FLAG_LARK_APP_ID="" FLAG_LARK_APP_SECRET=""
 FLAG_ZALO_TOKEN="" FLAG_WHATSAPP_URL=""
 FLAG_OWNER_IDS="" FLAG_AGENT_NAME="" FLAG_AGENT_PURPOSE="" FLAG_AGENT_PERSONALITY=""
+FLAG_OWNER_NAME="" FLAG_OWNER_LANG=""
 FLAG_GATEWAY_PORT="" FLAG_GATEWAY_TOKEN="" FLAG_ENCRYPTION_KEY=""
 
 # ── Argument Parsing ──────────────────────────────────────────────────────────
@@ -69,6 +70,8 @@ parse_args() {
       --agent-name)        FLAG_AGENT_NAME="$2";     shift 2 ;;
       --agent-purpose)     FLAG_AGENT_PURPOSE="$2";  shift 2 ;;
       --agent-personality) FLAG_AGENT_PERSONALITY="$2"; shift 2 ;;
+      --owner-name)        FLAG_OWNER_NAME="$2";      shift 2 ;;
+      --owner-language)    FLAG_OWNER_LANG="$2";      shift 2 ;;
       --gateway-port)      FLAG_GATEWAY_PORT="$2";   shift 2 ;;
       --gateway-token)     FLAG_GATEWAY_TOKEN="$2";  shift 2 ;;
       --encryption-key)    FLAG_ENCRYPTION_KEY="$2"; shift 2 ;;

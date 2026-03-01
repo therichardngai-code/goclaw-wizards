@@ -26,6 +26,8 @@ validate_non_interactive_args() {
   : "${FLAG_WHATSAPP_URL:=${GOCLAW_WHATSAPP_BRIDGE_URL:-}}"
   : "${FLAG_OWNER_IDS:=${GOCLAW_OWNER_IDS:-}}"
   : "${FLAG_CHANNELS:=${GOCLAW_CHANNELS:-}}"
+  : "${FLAG_OWNER_NAME:=${GOCLAW_OWNER_NAME:-}}"
+  : "${FLAG_OWNER_LANG:=${GOCLAW_OWNER_LANG:-}}"
 
   local missing=()
   [[ -z "${FLAG_PROVIDER:-}"    ]] && missing+=("--provider (or GOCLAW_PROVIDER)")
@@ -63,6 +65,8 @@ map_flags_to_config() {
   AGENT_PERSONALITY="${FLAG_AGENT_PERSONALITY:-}"; AGENT_LANGUAGE="English"
   AGENT_KEY=$(derive_agent_key "$AGENT_NAME")
   OWNER_IDS="$FLAG_OWNER_IDS"
+  OWNER_NAME="${FLAG_OWNER_NAME:-}"
+  OWNER_LANG="${FLAG_OWNER_LANG:-English}"
   [[ -n "${FLAG_GATEWAY_TOKEN:-}"  ]] && export GOCLAW_GATEWAY_TOKEN="$FLAG_GATEWAY_TOKEN"
   [[ -n "${FLAG_ENCRYPTION_KEY:-}" ]] && export GOCLAW_ENCRYPTION_KEY="$FLAG_ENCRYPTION_KEY"
   [[ -n "${FLAG_GATEWAY_PORT:-}"   ]] && PORT_API="$FLAG_GATEWAY_PORT"
@@ -87,7 +91,7 @@ print(json.dumps(out))" \
     "{\"tt\":\"${FLAG_TELEGRAM_TOKEN:-}\",\"dt\":\"${FLAG_DISCORD_TOKEN:-}\",\
 \"lai\":\"${FLAG_LARK_APP_ID:-}\",\"las\":\"${FLAG_LARK_APP_SECRET:-}\",\
 \"zt\":\"${FLAG_ZALO_TOKEN:-}\",\"wu\":\"${FLAG_WHATSAPP_URL:-}\"}" 2>/dev/null || echo "[]")
-  export PROVIDER API_KEY MODEL AGENT_NAME AGENT_PURPOSE AGENT_PERSONALITY AGENT_KEY CHANNELS_JSON
+  export PROVIDER API_KEY MODEL AGENT_NAME AGENT_PURPOSE AGENT_PERSONALITY AGENT_KEY CHANNELS_JSON OWNER_NAME OWNER_LANG
 }
 
 # ── Non-interactive install (no prompts, JSON output) ─────────────────────────

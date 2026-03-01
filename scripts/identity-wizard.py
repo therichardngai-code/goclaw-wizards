@@ -13,7 +13,7 @@ IDENT_END   = "IDENTITY_END"
 
 
 def build_prompt(agent_name, agent_purpose, agent_personality="",
-                 agent_language="English"):
+                 agent_language="English", owner_name="", owner_language="English"):
     """Build chat messages that instruct the LLM to generate delimited identity files."""
     system = (
         "You are an AI identity generator. Output exactly what is requested "
@@ -26,6 +26,22 @@ def build_prompt(agent_name, agent_purpose, agent_personality="",
     if agent_personality:
         parts.append(f"Personality/tone: {agent_personality}")
     parts.append(f"Response language: {agent_language}")
+    if owner_name:
+        parts.append(
+            f"Owner profile: name='{owner_name}', language='{owner_language}'. "
+            f"Include an ## Owner section in SOUL.md. Always address the owner by name."
+        )
+
+    # Owner section embedded in SOUL.md (agent-level file — always loaded by predefined agents).
+    # USER.md is written to agent_context_files but is overridden at runtime by the per-user
+    # user_context_files blank template seeded on first chat (GoClaw SeedUserFiles behaviour).
+    # Embedding owner profile in SOUL.md ensures the agent always sees it regardless of
+    # user_context_files priority.
+    owner_section = (
+        f"\n## Owner\n**Name:** {owner_name}\n**Language:** {owner_language}\n"
+        if owner_name else ""
+    )
+
     parts.append(f"""
 Output format — use these exact delimiter lines with no extra text around them:
 
@@ -50,7 +66,7 @@ Output format — use these exact delimiter lines with no extra text around them
 ## Operating Principles
 1. [principle]
 2. [principle]
-3. [principle]
+3. [principle]{owner_section}
 {SOUL_END}
 
 {IDENT_START}
@@ -149,6 +165,8 @@ def main():
         agent_purpose=args.agent_purpose,
         agent_personality=args.agent_personality,
         agent_language=args.agent_language,
+        owner_name=args.owner_name,
+        owner_language=args.owner_language,
     )
 
     # --- LLM generation with retry + exponential backoff ---
@@ -174,6 +192,12 @@ def main():
         }
         soul = load_template(
             os.path.join(args.templates_dir, "soul-default.md.tpl"), replacements)
+        # Append owner section so template fallback also carries owner profile in SOUL.md
+        if args.owner_name:
+            soul += (
+                f"\n## Owner\n**Name:** {args.owner_name}\n"
+                f"**Language:** {args.owner_language}\n"
+            )
         identity = load_template(
             os.path.join(args.templates_dir, "identity-default.md.tpl"), replacements)
 
