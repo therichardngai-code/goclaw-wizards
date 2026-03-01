@@ -101,7 +101,7 @@ def get_agent_uuid(host, port, token, agent_key):
         f"http://{host}:{port}/v1/agents/{agent_key}",
         headers={
             "Authorization": f"Bearer {token}",
-            "X-GoClaw-User-Id": "wizard",
+            # No X-GoClaw-User-Id — empty userID bypasses CanAccess check in handleGet
         }
     )
     try:
