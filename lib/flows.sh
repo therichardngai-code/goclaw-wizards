@@ -104,8 +104,17 @@ step_channels() {
 step_agent() {
   prompt_text AGENT_NAME "Agent name" "" ""
   prompt_text AGENT_PURPOSE "What does ${AGENT_NAME} do?" "" ""
+  prompt_text AGENT_PERSONALITY "Personality / tone (optional — Enter to skip)" "" ""
+  prompt_text AGENT_LANGUAGE "Response language" "English" ""
   AGENT_KEY=$(derive_agent_key "$AGENT_NAME")
+  export AGENT_PERSONALITY AGENT_LANGUAGE
   print_step "Agent key: ${AGENT_KEY}"
+}
+
+step_owner() {
+  prompt_text OWNER_NAME "Your name (so the agent knows who you are — Enter to skip)" "" ""
+  prompt_text OWNER_LANG "Your language" "English" ""
+  export OWNER_NAME OWNER_LANG
 }
 
 # ── Confirm summary before launch ─────────────────────────────────────────────
@@ -192,8 +201,8 @@ print(json.dumps({'key':'${AGENT_KEY}','name':'${AGENT_NAME}','type':'predefined
 
 # ── QuickStart flow (default) ─────────────────────────────────────────────────
 quickstart_flow() {
-  prompt_intro "QuickStart Install  —  3 steps to a working AI agent"
-  preflight; step_provider; step_channels; step_agent
+  prompt_intro "QuickStart Install  —  4 steps to a working AI agent"
+  preflight; step_provider; step_channels; step_agent; step_owner
   allocate_port_block "$STACK" || exit 1
   generate_stack_secrets "$STACK"
   confirm_summary; launch_stack

@@ -6,11 +6,13 @@ import argparse, base64, json, os, socket, struct, sys
 
 class _WS:
     """Minimal RFC-6455 WebSocket client — plain TCP, localhost only."""
-    def __init__(self, host, port):
+    def __init__(self, host, port, token=None):
         self._s = socket.create_connection((host, port), timeout=30)
         key = base64.b64encode(os.urandom(16)).decode()
+        # Auth via URL query param — gateway validates token at HTTP upgrade level
+        path = f"/ws?token={token}" if token else "/ws"
         self._s.sendall((
-            f"GET /ws HTTP/1.1\r\nHost: {host}:{port}\r\n"
+            f"GET {path} HTTP/1.1\r\nHost: {host}:{port}\r\n"
             f"Upgrade: websocket\r\nConnection: Upgrade\r\n"
             f"Sec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n"
         ).encode())
@@ -61,12 +63,9 @@ class _WS:
 class GoclawWS:
     """JSON-RPC over WebSocket for GoClaw gateway."""
     def __init__(self, host, port, token):
-        self._ws = _WS(host, port)
+        # Token passed in URL — no separate auth frame needed
+        self._ws = _WS(host, port, token)
         self._id = 0
-        self._ws.send(json.dumps({"type": "connect", "params": {"token": token, "user_id": "wizard"}}))
-        r = json.loads(self._ws.recv())
-        if not r.get("ok"):
-            raise RuntimeError(f"Auth failed: {r}")
 
     def call(self, method, params):
         self._id += 1

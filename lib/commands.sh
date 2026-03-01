@@ -34,6 +34,9 @@ cmd_add_agent() {
   prompt_text AGENT_LANGUAGE "Response language" "English" ""
   AGENT_KEY=$(derive_agent_key "$AGENT_NAME"); export AGENT_PERSONALITY AGENT_LANGUAGE
   print_step "Agent key: ${AGENT_KEY}"
+  prompt_text OWNER_NAME "Your name (so the agent knows who you are — Enter to skip)" "" ""
+  prompt_text OWNER_LANG "Your language" "English" ""
+  export OWNER_NAME OWNER_LANG
 
   local agents_dir; agents_dir="$(stack_dir "$STACK")/agents/${AGENT_KEY}"
   mkdir -p "$agents_dir"
@@ -42,6 +45,7 @@ cmd_add_agent() {
       --mode add-agent --port "$_api_port" --token "$GOCLAW_GATEWAY_TOKEN" --model "default" \
       --agent-name "$AGENT_NAME" --agent-purpose "$AGENT_PURPOSE" \
       --agent-personality "${AGENT_PERSONALITY:-}" --agent-language "${AGENT_LANGUAGE:-English}" \
+      --owner-name "${OWNER_NAME:-}" --owner-language "${OWNER_LANG:-English}" \
       --output-dir "$agents_dir" --templates-dir "${WIZARD_DIR}/templates"
 
   prompt_progress "Provisioning ${AGENT_NAME}..." \
