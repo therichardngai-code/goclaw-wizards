@@ -170,7 +170,7 @@ def delete_agent(ws, key):
 
 def main():
     p = argparse.ArgumentParser(description="GoClaw agent provisioning")
-    p.add_argument("--action", required=True, choices=["create", "delete", "add-channel", "list-channels"])
+    p.add_argument("--action", required=True, choices=["create", "delete", "add-channel", "list-channels", "update-files"])
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, required=True)
     p.add_argument("--token", required=True)
@@ -214,6 +214,15 @@ def main():
 
         elif args.action == "list-channels":
             print(json.dumps({"ok": True, "channels": list_channels_for_key(ws, args.agent_key)}))
+
+        elif args.action == "update-files":
+            # Re-seed identity files for an existing agent — no delete/create, no channel changes.
+            # Use agents.files.set which overwrites in-place. Agent key resolves via GetByKey.
+            soul     = open(args.soul_file).read()     if args.soul_file     else ""
+            identity = open(args.identity_file).read() if args.identity_file else ""
+            user     = open(args.user_file).read()     if args.user_file     else None
+            seed_files(ws, args.agent_key, soul, identity, user)
+            print(json.dumps({"ok": True}))
 
     except Exception as exc:
         print(json.dumps({"ok": False, "error": str(exc)}), file=sys.stderr)

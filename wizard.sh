@@ -82,7 +82,7 @@ parse_args() {
       --help|-h)           show_help; exit 0 ;;
       --all)               STATUS_ALL=true;          shift ;;
       --repair)            DOCTOR_REPAIR=true;       shift ;;
-      install|add-agent|remove-agent|start|stop|restart|upgrade|uninstall|status|logs|doctor)
+      install|add-agent|remove-agent|reseed-agent|start|stop|restart|upgrade|uninstall|status|logs|doctor)
         COMMAND="$1"; shift ;;
       channels)
         COMMAND="channels"; shift ;;
@@ -101,6 +101,7 @@ show_help() {
   printf "    install          Install a new GoClaw stack (default)\n"
   printf "    add-agent        Add an agent to an existing stack\n"
   printf "    remove-agent     Remove an agent (requires --agent-key)\n"
+  printf "    reseed-agent     Regenerate agent identity files in-place (no data loss)\n"
   printf "    channels add     Add a channel to an existing agent\n"
   printf "    start|stop|restart|status|logs|upgrade|uninstall  Stack lifecycle\n"
   printf "    doctor           Diagnose stack health (--repair to auto-fix)\n\n"
@@ -136,6 +137,7 @@ main() {
       fi ;;
     add-agent)     cmd_add_agent ;;
     remove-agent)  cmd_remove_agent ;;
+    reseed-agent)  cmd_reseed_agent ;;
     channels-add|channels) cmd_channels_add ;;
     start)         cmd_start ;;
     stop)          cmd_stop ;;
