@@ -192,7 +192,7 @@ launch_stack() {
 import json, datetime
 ch = json.loads(r'''${CHANNELS_JSON}''')
 print(json.dumps({'key':'${AGENT_KEY}','name':'${AGENT_NAME}','type':'predefined',
-  'channels':[c['type'] for c in ch],'created_at':datetime.datetime.utcnow().isoformat()+'Z'}))" 2>/dev/null)
+  'channels':[c['type'] for c in ch],'created_at':datetime.datetime.now(datetime.timezone.utc).isoformat()}))" 2>/dev/null)
   [[ -n "$agent_entry" ]] && state_update_agents "$STACK" "$agent_entry"
 
   prompt_outro "$(printf '%s is live!\n\n  Gateway:   http://127.0.0.1:%s\n  Dashboard: http://127.0.0.1:%s\n\n  Add agent: bash wizard.sh add-agent --name %s\n  Diagnose:  bash wizard.sh doctor  --name %s' \

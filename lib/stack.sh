@@ -145,7 +145,7 @@ print(json.dumps({
   'ports':        {'api': ${PORT_API:-18790}, 'ui': ${PORT_UI:-3000},
                    'pg': ${PORT_PG:-5432}, 'jaeger': ${PORT_JAEGER:-16686}},
   'agents':       [],
-  'installed_at': datetime.datetime.utcnow().isoformat() + 'Z'
+  'installed_at': datetime.datetime.now(datetime.timezone.utc).isoformat()
 }, indent=2))
 "
 }

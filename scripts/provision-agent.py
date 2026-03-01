@@ -188,7 +188,15 @@ def main():
             soul     = open(args.soul_file).read()     if args.soul_file     else ""
             identity = open(args.identity_file).read() if args.identity_file else ""
             user     = open(args.user_file).read()     if args.user_file     else None
-            # Server derives key from name; use returned key for all subsequent calls
+            # Pre-delete stale agent from DB (dirty reinstall: agent exists in Postgres
+            # from a previous run that failed after agents.create but state.json was reset).
+            # Idempotent: if agent doesn't exist, delete_agent returns NOT_FOUND — caught here.
+            if args.agent_key:
+                try:
+                    delete_agent(ws, args.agent_key)
+                except Exception:
+                    pass  # expected on fresh install
+            # Server derives key from name via NormalizeAgentID; use returned key for all calls
             agent_key = create_agent(ws, args.agent_name)
             seed_files(ws, agent_key, soul, identity, user)
             for ch in json.loads(args.channels_json):
