@@ -110,10 +110,7 @@ cmd_reseed_agent() {
       --soul-file     "${agents_dir}/SOUL.md" \
       --identity-file "${agents_dir}/IDENTITY.md"
 
-  # Restart to flush ContextFileInterceptor cache
-  docker restart "goclaw-${STACK}-goclaw-1" >/dev/null 2>&1 || true
-  stack_health_check "$STACK" "$_api_port" 10 3 || true
-
+  # PR #29: cache invalidated server-side on agents.files.set — no restart needed
   print_success "Agent '${AGENT_NAME}' identity updated — owner profile now in SOUL.md"
 }
 
@@ -173,7 +170,7 @@ print(','.join(a.get('channels',[])) if a else '')" 2>/dev/null)
     python3 "${WIZARD_DIR}/scripts/provision-agent.py" \
       --action add-channel --port "$_api_port" --token "$GOCLAW_GATEWAY_TOKEN" \
       --agent-key "$AGENT_KEY" --channels-json "[${_ch_creds_json}]"
-  docker restart "goclaw-${STACK}-goclaw-1" >/dev/null 2>&1 || true
+  # PR #29: no restart needed
 
   local updated; updated=$(state_read "$STACK" | python3 -c "
 import sys,json; state=json.load(sys.stdin)

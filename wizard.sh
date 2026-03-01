@@ -8,6 +8,11 @@ WIZARD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WIZARD_VERSION="1.0.0"
 export WIZARD_DIR WIZARD_VERSION
 
+# Ensure UTF-8 throughout — prevents UnicodeEncodeError when identity-wizard.py
+# handles non-ASCII agent/owner names on systems with non-UTF-8 default locale.
+export PYTHONIOENCODING=utf-8
+export LANG="${LANG:-en_US.UTF-8}"
+
 # Data directory — kept outside the wizard source tree.
 # Override via env var WIZARD_HOME before running wizard.sh.
 # Guard: if WIZARD_HOME somehow points inside WIZARD_DIR, reset to safe default.

@@ -12,6 +12,16 @@ IDENT_START = "IDENTITY_START"
 IDENT_END   = "IDENTITY_END"
 
 
+def sanitize(s):
+    """Strip lone surrogates from CLI args — can appear when shell passes non-ASCII
+    strings through python3 script.py args on systems where locale is not UTF-8.
+    Surrogates are un-encodable with utf-8 codec and cause UnicodeEncodeError on write.
+    """
+    if not s:
+        return s
+    return s.encode("utf-8", errors="replace").decode("utf-8")
+
+
 def build_prompt(agent_name, agent_purpose, agent_personality="",
                  agent_language="English", owner_name="", owner_language="English"):
     """Build chat messages that instruct the LLM to generate delimited identity files."""
@@ -133,7 +143,7 @@ def generate_user_md(owner_name, owner_language, owner_notes=""):
 
 def load_template(template_path, replacements):
     """Load a .tpl file and substitute {{KEY}} placeholders."""
-    with open(template_path, "r") as f:
+    with open(template_path, "r", encoding="utf-8") as f:
         content = f.read()
     for key, val in replacements.items():
         content = content.replace("{{" + key + "}}", val)
@@ -159,6 +169,15 @@ def main():
     args = p.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
+
+    # Sanitize all string args — prevents UnicodeEncodeError from lone surrogates
+    # that can appear when shell passes non-ASCII text on non-UTF-8 locales.
+    args.agent_name        = sanitize(args.agent_name)
+    args.agent_purpose     = sanitize(args.agent_purpose)
+    args.agent_personality = sanitize(args.agent_personality)
+    args.agent_language    = sanitize(args.agent_language)
+    args.owner_name        = sanitize(args.owner_name)
+    args.owner_language    = sanitize(args.owner_language)
 
     messages = build_prompt(
         agent_name=args.agent_name,
@@ -202,15 +221,15 @@ def main():
             os.path.join(args.templates_dir, "identity-default.md.tpl"), replacements)
 
     # --- Write output files ---
-    with open(os.path.join(args.output_dir, "SOUL.md"), "w")     as f: f.write(soul)
-    with open(os.path.join(args.output_dir, "IDENTITY.md"), "w") as f: f.write(identity)
+    with open(os.path.join(args.output_dir, "SOUL.md"),     "w", encoding="utf-8") as f: f.write(soul)
+    with open(os.path.join(args.output_dir, "IDENTITY.md"), "w", encoding="utf-8") as f: f.write(identity)
 
     files_written = ["SOUL.md", "IDENTITY.md"]
 
     # USER.md only in install mode when owner name is provided
     if args.mode == "install" and args.owner_name:
         user_md = generate_user_md(args.owner_name, args.owner_language, args.owner_notes)
-        with open(os.path.join(args.output_dir, "USER.md"), "w") as f:
+        with open(os.path.join(args.output_dir, "USER.md"), "w", encoding="utf-8") as f:
             f.write(user_md)
         files_written.append("USER.md")
 

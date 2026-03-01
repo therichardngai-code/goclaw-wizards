@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# lib/bootstrap.sh — Post-provision: docker restart, health wait, welcome dispatch
+# lib/bootstrap.sh — Post-provision: agent seeding, welcome dispatch
 # Depends on: colors.sh, stack.sh (stack_dir, stack_health_check, state_read), secrets.sh
 
 # WIZARD_DIR must be set by wizard.sh (directory containing wizard.sh itself)
@@ -32,17 +32,8 @@ bootstrap_agent() {
     return 1
   }
 
-  # Restart gateway to flush 5-min ContextFileInterceptor cache (MANDATORY)
-  docker restart "goclaw-${stack}-goclaw-1" >/dev/null 2>&1 || {
-    print_warn "Could not restart container goclaw-${stack}-goclaw-1 — SOUL.md may not load for up to 5 min"
-  }
-
-  # Wait for gateway to come back healthy
-  stack_health_check "$stack" "$api_port" 10 3 || {
-    print_error "Gateway did not recover after restart"
-    return 1
-  }
-
+  # PR #29: ContextFileInterceptor cache invalidated server-side on agents.files.set.
+  # docker restart no longer needed — files are served immediately after seed.
   print_success "Agent '${agent_name}' provisioned and active"
 }
 
@@ -132,7 +123,5 @@ deprovision_agent() {
     --port  "$api_port" \
     --token "$gw_token" \
     --agent-key "$agent_key" 2>&1 || true
-
-  # Restart to flush cache
-  docker restart "goclaw-${stack}-goclaw-1" >/dev/null 2>&1 || true
+  # PR #29: no restart needed — cache invalidated server-side on agents.files.set
 }

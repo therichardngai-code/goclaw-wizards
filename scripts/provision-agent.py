@@ -115,11 +115,17 @@ def get_agent_uuid(host, port, token, agent_key):
     return str(agent_uuid)
 
 
-def create_agent(ws, name):
-    """Create predefined agent. Returns agent key as normalised by server."""
+def create_agent(ws, name, owner_ids=None):
+    """Create predefined agent. Returns agent key as normalised by server.
+    owner_ids: list of owner user IDs (PR #34 — makes agent visible in web UI
+    for those users via agents.create WS owner_ids param).
+    """
     # Note: agent_key param does NOT exist in agents.create — server derives key
     # from name via config.NormalizeAgentID(name). Use returned agentId as key.
-    r = ws.call("agents.create", {"name": name, "agent_type": "predefined"})
+    params = {"name": name, "agent_type": "predefined"}
+    if owner_ids:
+        params["owner_ids"] = owner_ids
+    r = ws.call("agents.create", params)
     p = r.get("payload", {})
     return p.get("agentId") or name  # agentId = server-normalised key
 
@@ -196,10 +202,18 @@ def main():
                     delete_agent(ws, args.agent_key)
                 except Exception:
                     pass  # expected on fresh install
+            # Collect all unique owner IDs from channels (PR #34: passed to agents.create
+            # so predefined agent is visible in web UI for each owner via ListAccessible).
+            channels = json.loads(args.channels_json)
+            all_owner_ids = list(dict.fromkeys(
+                oid for ch in channels
+                for oid in ch.get("owner_ids", [])
+                if oid
+            ))
             # Server derives key from name via NormalizeAgentID; use returned key for all calls
-            agent_key = create_agent(ws, args.agent_name)
+            agent_key = create_agent(ws, args.agent_name, owner_ids=all_owner_ids or None)
             seed_files(ws, agent_key, soul, identity, user)
-            for ch in json.loads(args.channels_json):
+            for ch in channels:
                 create_channel(ws, args.host, args.port, args.token, agent_key, ch)
             print(json.dumps({"ok": True, "agent_id": agent_key}))
 
