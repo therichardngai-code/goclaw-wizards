@@ -128,15 +128,20 @@ def parse_delimiters(text):
 
 
 def generate_user_md(owner_name, owner_language, owner_notes=""):
-    """Build USER.md content from owner profile (no LLM call needed)."""
+    """Build USER.md content from owner profile (no LLM call needed).
+    owner_name is optional — omits name-specific lines when empty so the
+    agent still knows the preferred language without asking for it again.
+    """
     notes_line = owner_notes.strip() if owner_notes.strip() else "None"
+    name_line  = f"- **Name:** {owner_name}\n" if owner_name else ""
+    address    = f"Always address the owner as {owner_name}. " if owner_name else ""
     return (
         f"# USER.md -- Owner Profile\n"
-        f"- **Name:** {owner_name}\n"
+        f"{name_line}"
         f"- **Language:** {owner_language}\n"
         f"- **Notes:** {notes_line}\n\n"
         f"## Communication\n"
-        f"Always address the owner as {owner_name}. "
+        f"{address}"
         f"Default response language: {owner_language}.\n"
     )
 
@@ -226,12 +231,14 @@ def main():
 
     files_written = ["SOUL.md", "IDENTITY.md"]
 
-    # USER.md whenever owner name is provided (install + add-agent modes)
-    if args.owner_name:
-        user_md = generate_user_md(args.owner_name, args.owner_language, args.owner_notes)
-        with open(os.path.join(args.output_dir, "USER.md"), "w", encoding="utf-8") as f:
-            f.write(user_md)
-        files_written.append("USER.md")
+    # USER.md always generated — owner language is always known even if name is skipped.
+    # This guarantees agent_context_files always has a non-empty USER.md so
+    # SeedUserFiles (PR #30) can use it as the per-user seed on first chat,
+    # preventing the agent from asking for info the wizard already collected.
+    user_md = generate_user_md(args.owner_name, args.owner_language, args.owner_notes)
+    with open(os.path.join(args.output_dir, "USER.md"), "w", encoding="utf-8") as f:
+        f.write(user_md)
+    files_written.append("USER.md")
 
     print(json.dumps({"ok": True, "files": files_written}))
 
