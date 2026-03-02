@@ -165,6 +165,16 @@ def list_channels_for_key(ws, key):
     return [i for i in instances if i.get("name", "").startswith(f"{key}-")]
 
 
+def list_channels_for_agent_uuid(ws, agent_uuid):
+    """List channel instances owned by a specific agent UUID.
+    Used instead of name-prefix matching when the auto-onboard names channels
+    without the agent-key prefix (e.g. "telegram" instead of "default-telegram").
+    """
+    r = ws.call("channels.instances.list", {})
+    instances = r.get("payload", {}).get("instances", [])
+    return [i for i in instances if str(i.get("agent_id", "")) == agent_uuid]
+
+
 def delete_agent(ws, key):
     """Delete all channel instances for agent, then delete agent.
     agents.delete uses agentId (key), not agentKey (agents.go:handleDelete).
@@ -172,6 +182,39 @@ def delete_agent(ws, key):
     for inst in list_channels_for_key(ws, key):
         ws.call("channels.instances.delete", {"id": str(inst["id"])})
     ws.call("agents.delete", {"agentId": key})
+
+
+def purge_default_agent(ws, host, port, token):
+    """Remove channel instances owned by GoClaw's auto-onboard default agent.
+
+    Auto-onboard seeds a "default" open-agent + channel instance on container
+    first-start BEFORE the wizard runs, using the same bot token the wizard
+    will configure — causing duplicate routing to two agents.
+
+    name-prefix matching (list_channels_for_key) misses these instances because
+    auto-onboard names them "telegram" not "default-telegram". We must filter by
+    agent_id UUID instead.
+
+    agents.delete("default") is blocked by GoClaw ("cannot delete the default
+    agent") — channel-instance deletion is the only effective cleanup.
+    """
+    try:
+        default_uuid = get_agent_uuid(host, port, token, "default")
+    except Exception:
+        return  # default agent not found — nothing to purge
+    try:
+        for inst in list_channels_for_agent_uuid(ws, default_uuid):
+            try:
+                ws.call("channels.instances.delete", {"id": str(inst["id"])})
+            except Exception:
+                pass
+    except Exception:
+        pass
+    # agents.delete will be rejected ("cannot delete the default agent") — silent
+    try:
+        ws.call("agents.delete", {"agentId": "default"})
+    except Exception:
+        pass
 
 
 def main():
@@ -206,22 +249,10 @@ def main():
                 except Exception:
                     pass  # expected on fresh install
 
-            # Purge GoClaw auto-onboard default agent + its channel instances.
-            # GoClaw seeds a "default" open-agent on container first-start (auto-onboard).
-            # This creates a channel instance with the same bot token BEFORE the wizard runs,
-            # causing two agents to share the same Telegram/Discord bot → duplicate routing.
-            # Fix: remove default agent's channels first (silent — "default" id may be reserved
-            # and block agents.delete, but channel instance deletion always works).
+            # Purge GoClaw auto-onboard default agent before creating the wizard's agent.
+            # See purge_default_agent() for full explanation.
             if args.agent_key != "default":
-                for inst in list_channels_for_key(ws, "default"):
-                    try:
-                        ws.call("channels.instances.delete", {"id": str(inst["id"])})
-                    except Exception:
-                        pass
-                try:
-                    ws.call("agents.delete", {"agentId": "default"})
-                except Exception:
-                    pass  # reserved id — channel cleanup above is sufficient
+                purge_default_agent(ws, args.host, args.port, args.token)
             # agent.owner_id = admin IDs (--admin-ids flag) so the wizard operator can
             # edit context files in the Web Dashboard (frontend: agent.owner_id === userId).
             # Channel owner_ids are used only for channel.allow_from (who can DM the bot).
