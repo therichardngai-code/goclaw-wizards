@@ -226,8 +226,8 @@ def main():
 
     files_written = ["SOUL.md", "IDENTITY.md"]
 
-    # USER.md only in install mode when owner name is provided
-    if args.mode == "install" and args.owner_name:
+    # USER.md whenever owner name is provided (install + add-agent modes)
+    if args.owner_name:
         user_md = generate_user_md(args.owner_name, args.owner_language, args.owner_notes)
         with open(os.path.join(args.output_dir, "USER.md"), "w", encoding="utf-8") as f:
             f.write(user_md)

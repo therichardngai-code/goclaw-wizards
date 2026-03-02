@@ -18,6 +18,9 @@ bootstrap_agent() {
 
   # Provision via Python script (create agent + seed files + channel instances)
   local result
+  # OWNER_IDS = admin user IDs (set by step_admin or map_flags_to_config).
+  # Passed as --admin-ids so agents.create sets agent.owner_id = admin ID in DB.
+  # This lets the admin edit context files in the Web Dashboard (frontend ownership check).
   result=$(python3 "${WIZARD_DIR}/scripts/provision-agent.py" \
     --action create \
     --port   "$api_port" \
@@ -27,6 +30,7 @@ bootstrap_agent() {
     --soul-file      "$soul_file" \
     --identity-file  "$identity_file" \
     ${user_file:+--user-file "$user_file"} \
+    ${OWNER_IDS:+--admin-ids "$OWNER_IDS"} \
     --channels-json  "$channels_json" 2>&1) || {
     print_error "Agent provisioning failed: ${result}"
     return 1

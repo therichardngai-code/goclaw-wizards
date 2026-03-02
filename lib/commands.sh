@@ -52,9 +52,10 @@ cmd_add_agent() {
       --owner-name "${OWNER_NAME:-}" --owner-language "${OWNER_LANG:-English}" \
       --output-dir "$agents_dir" --templates-dir "${WIZARD_DIR}/templates"
 
+  local user_file_arg=""; [[ -f "${agents_dir}/USER.md" ]] && user_file_arg="${agents_dir}/USER.md"
   prompt_progress "Provisioning ${AGENT_NAME}..." \
     bootstrap_agent "$STACK" "$AGENT_KEY" "$AGENT_NAME" "$CHANNELS_JSON" \
-      "${agents_dir}/SOUL.md" "${agents_dir}/IDENTITY.md"
+      "${agents_dir}/SOUL.md" "${agents_dir}/IDENTITY.md" "${user_file_arg:-}"
 
   local agent_entry; agent_entry=$(python3 -c "
 import json, datetime
@@ -107,12 +108,14 @@ cmd_reseed_agent() {
       --owner-name "${OWNER_NAME:-}" --owner-language "${OWNER_LANG:-English}" \
       --output-dir "$agents_dir" --templates-dir "${WIZARD_DIR}/templates"
 
+  local user_file_arg=""; [[ -f "${agents_dir}/USER.md" ]] && user_file_arg="${agents_dir}/USER.md"
   prompt_progress "Updating ${AGENT_NAME}'s files (no delete/recreate)..." \
     python3 "${WIZARD_DIR}/scripts/provision-agent.py" \
       --action update-files --port "$_api_port" --token "$GOCLAW_GATEWAY_TOKEN" \
       --agent-key "$AGENT_KEY" \
       --soul-file     "${agents_dir}/SOUL.md" \
-      --identity-file "${agents_dir}/IDENTITY.md"
+      --identity-file "${agents_dir}/IDENTITY.md" \
+      ${user_file_arg:+--user-file "$user_file_arg"}
 
   # PR #29: cache invalidated server-side on agents.files.set — no restart needed
   print_success "Agent '${AGENT_NAME}' identity updated — owner profile now in SOUL.md"

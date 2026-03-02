@@ -185,6 +185,10 @@ def main():
     p.add_argument("--soul-file")
     p.add_argument("--identity-file")
     p.add_argument("--user-file")
+    p.add_argument("--admin-ids", default="",
+                   help="Comma-separated admin user IDs — set as agent.owner_id in DB "
+                        "so the admin can edit context files in the Web Dashboard. "
+                        "Separate from channel owner_ids (allow_from).")
     p.add_argument("--channels-json", default="[]")
     args = p.parse_args()
 
@@ -202,16 +206,22 @@ def main():
                     delete_agent(ws, args.agent_key)
                 except Exception:
                     pass  # expected on fresh install
-            # Collect all unique owner IDs from channels (PR #34: passed to agents.create
-            # so predefined agent is visible in web UI for each owner via ListAccessible).
+            # agent.owner_id = admin IDs (--admin-ids flag) so the wizard operator can
+            # edit context files in the Web Dashboard (frontend: agent.owner_id === userId).
+            # Channel owner_ids are used only for channel.allow_from (who can DM the bot).
+            # Falls back to channel owner_ids for backward compat when --admin-ids not provided.
             channels = json.loads(args.channels_json)
-            all_owner_ids = list(dict.fromkeys(
-                oid for ch in channels
-                for oid in ch.get("owner_ids", [])
-                if oid
-            ))
+            if args.admin_ids:
+                admin_ids = [i.strip() for i in args.admin_ids.split(",") if i.strip()]
+            else:
+                # backward compat: no --admin-ids → derive from channels (old behaviour)
+                admin_ids = list(dict.fromkeys(
+                    oid for ch in channels
+                    for oid in ch.get("owner_ids", [])
+                    if oid
+                ))
             # Server derives key from name via NormalizeAgentID; use returned key for all calls
-            agent_key = create_agent(ws, args.agent_name, owner_ids=all_owner_ids or None)
+            agent_key = create_agent(ws, args.agent_name, owner_ids=admin_ids or None)
             seed_files(ws, agent_key, soul, identity, user)
             for ch in channels:
                 create_channel(ws, args.host, args.port, args.token, agent_key, ch)
