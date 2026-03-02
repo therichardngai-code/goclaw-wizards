@@ -11,7 +11,9 @@ step_risk_accept() {
   printf "  ${CYAN}│${NC}\n"
   local _opts=("Yes — I understand the risks, continue" "No — exit")
   local _choice; prompt_select _choice "I understand this is powerful and inherently risky. Ok to Continue?" _opts
-  [[ "$_choice" == "No"* ]] && { printf "\n  Setup cancelled.\n\n"; exit 0; }
+  if [[ "$_choice" == "No"* ]]; then
+    printf "\n  Setup cancelled.\n\n"; exit 0
+  fi
 }
 
 # ── Preflight: deps + existing stack detection ────────────────────────────────
