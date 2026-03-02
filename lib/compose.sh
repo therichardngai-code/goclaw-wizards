@@ -48,6 +48,17 @@ compose_up() {
   local stack="$1" goclaw_dir="$2" mode="$3" features="${4:-}" env_file="$5"
   _dc_base "$stack" "$goclaw_dir" "$mode" "$features" || return 1
 
+  # Zero out channel token vars so they never leak from the shell environment
+  # into the container via docker-compose.yml ${VAR:-} substitution.
+  # Channels are provisioned by provision-agent.py into channel_instances table.
+  # If a token leaks, GoClaw auto-onboard creates a duplicate channel instance
+  # under the default agent (seedChannelInstances in onboard_managed.go).
+  env \
+    GOCLAW_TELEGRAM_TOKEN="" \
+    GOCLAW_DISCORD_TOKEN="" \
+    GOCLAW_LARK_APP_ID="" GOCLAW_LARK_APP_SECRET="" \
+    GOCLAW_ZALO_TOKEN="" \
+    GOCLAW_WHATSAPP_BRIDGE_URL="" \
   docker compose \
     --project-name "goclaw-${stack}" \
     "${GOCLAW_OVERLAY_ARGS[@]}" \
