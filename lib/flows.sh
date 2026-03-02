@@ -117,6 +117,26 @@ step_owner() {
   export OWNER_NAME OWNER_LANG
 }
 
+# ── Step: Web Dashboard admin ID ──────────────────────────────────────────────
+# Separate from channel owner_ids — admin can see ALL agents + ALL conversations.
+# Default: first owner_id entered during channel setup (most likely the operator).
+step_admin() {
+  local _default_id
+  _default_id=$(echo "${CHANNELS_JSON:-[]}" | python3 -c "
+import sys, json
+for ch in json.load(sys.stdin):
+    ids = ch.get('owner_ids', [])
+    if ids and ids[0]:
+        print(ids[0]); break
+" 2>/dev/null || echo "")
+
+  prompt_note "Web Dashboard Admin" \
+    "The admin ID grants full access to the Web Dashboard (view ALL agents + ALL conversations)." \
+    "Enter YOUR ID — the person running this wizard — not your end-users' IDs."
+  prompt_text OWNER_IDS "Your admin user ID (Telegram / Discord / etc.)" "$_default_id" ""
+  export OWNER_IDS
+}
+
 # ── Confirm summary before launch ─────────────────────────────────────────────
 confirm_summary() {
   local ch_types; ch_types=$(echo "$CHANNELS_JSON" | \
@@ -125,6 +145,7 @@ confirm_summary() {
   printf "  ${CYAN}│${NC}  Provider:  %s  (model: %s)\n"    "$PROVIDER"   "$MODEL"
   printf "  ${CYAN}│${NC}  Channels:  %s\n"                 "${ch_types:-?}"
   printf "  ${CYAN}│${NC}  Agent:     %s  (key: %s)\n"     "$AGENT_NAME" "$AGENT_KEY"
+  printf "  ${CYAN}│${NC}  Admin ID:  %s\n"                "${OWNER_IDS:-?}"
   printf "  ${CYAN}│${NC}  Mode:      %s  |  Features: %s\n" "$MODE"     "${FEATURES:-none}"
   printf "  ${CYAN}│${NC}  Gateway:   http://127.0.0.1:%s\n"  "$PORT_API"
   [[ "$FEATURES" == *"ui"* ]] && printf "  ${CYAN}│${NC}  Dashboard: http://127.0.0.1:%s\n" "$PORT_UI"
@@ -150,22 +171,10 @@ launch_stack() {
   [[ -n "${FLAG_ENCRYPTION_KEY:-}" ]] && GOCLAW_ENCRYPTION_KEY="$FLAG_ENCRYPTION_KEY"
   [[ -n "${FLAG_GATEWAY_PORT:-}"   ]] && PORT_API="$FLAG_GATEWAY_PORT"
 
-  # Extract unique owner IDs from all channel definitions → GOCLAW_OWNER_IDS in Docker env.
-  # CHANNELS_JSON holds owner_ids per channel (e.g. Telegram user ID, Discord user ID).
-  # Without this, OWNER_IDS is always empty → no user has REST API superuser access →
-  # all write operations in the Web UI are rejected with 403 Forbidden.
-  OWNER_IDS=$(echo "$CHANNELS_JSON" | python3 -c "
-import sys, json
-channels = json.load(sys.stdin)
-ids = list(dict.fromkeys(
-    oid for ch in channels
-    for oid in ch.get('owner_ids', [])
-    if oid
-))
-print(','.join(ids))
-" 2>/dev/null)
-  export OWNER_IDS
-
+  # OWNER_IDS must be set before this point — either by step_admin() (interactive)
+  # or by map_flags_to_config() (non-interactive). It is NOT derived from CHANNELS_JSON
+  # because channel owner_ids = who can DM the bot, which is different from
+  # GOCLAW_OWNER_IDS = who gets Web Dashboard admin access (sees ALL agents + conversations).
   local env_file; env_file=$(stack_generate_env "$STACK")
   trap "stack_cleanup_env '${STACK}'" EXIT
 
@@ -222,8 +231,8 @@ print(json.dumps({'key':'${AGENT_KEY}','name':'${AGENT_NAME}','type':'predefined
 
 # ── QuickStart flow (default) ─────────────────────────────────────────────────
 quickstart_flow() {
-  prompt_intro "QuickStart Install  —  4 steps to a working AI agent"
-  preflight; step_provider; step_channels; step_agent; step_owner
+  prompt_intro "QuickStart Install  —  5 steps to a working AI agent"
+  preflight; step_provider; step_channels; step_agent; step_owner; step_admin
   allocate_port_block "$STACK" || exit 1
   generate_stack_secrets "$STACK"
   confirm_summary; launch_stack

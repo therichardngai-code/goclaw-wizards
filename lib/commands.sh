@@ -15,6 +15,10 @@ _load_stack_state() {
   _features=$(echo "$_state" | python3 -c "import sys,json;print(','.join(json.load(sys.stdin).get('features',[])))")
   _goclaw_dir="$(stack_dir "$STACK")/goclaw"
   _api_port=$(echo "$_state" | python3 -c "import sys,json;print(json.load(sys.stdin)['ports']['api'])")
+  # Restore OWNER_IDS from state.json so stack_generate_env writes GOCLAW_OWNER_IDS correctly
+  # on every start/restart/upgrade — not just the initial install.
+  OWNER_IDS=$(echo "$_state" | python3 -c "import sys,json;print(','.join(json.load(sys.stdin).get('owner_ids',[])))" 2>/dev/null || true)
+  export OWNER_IDS
 }
 
 # ── Add agent ─────────────────────────────────────────────────────────────────
