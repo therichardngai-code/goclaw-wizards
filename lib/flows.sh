@@ -3,6 +3,17 @@
 # Depends on: flow-data.sh, colors.sh, wizard-ui.sh, secrets.sh, ports.sh,
 #             compose.sh, stack.sh, bootstrap.sh
 
+# ── Step 0: Risk acknowledgment ───────────────────────────────────────────────
+step_risk_accept() {
+  printf "\n  ${YELLOW}⚠${NC}  ${BOLD}Before you continue${NC}\n  ${CYAN}│${NC}\n"
+  printf "  ${CYAN}│${NC}  GoClaw deploys an AI agent with access to your server.\n"
+  printf "  ${CYAN}│${NC}  It can execute commands, read files, and talk to the internet.\n"
+  printf "  ${CYAN}│${NC}\n"
+  local _opts=("Yes — I understand the risks, continue" "No — exit")
+  local _choice; prompt_select _choice "I understand this is powerful and inherently risky. Ok to Continue?" _opts
+  [[ "$_choice" == "No"* ]] && { printf "\n  Setup cancelled.\n\n"; exit 0; }
+}
+
 # ── Preflight: deps + existing stack detection ────────────────────────────────
 preflight() {
   detect_all
@@ -100,23 +111,6 @@ step_channels() {
   CHANNELS_JSON+="]"
 }
 
-# ── Step 3: Agent identity ────────────────────────────────────────────────────
-step_agent() {
-  prompt_text AGENT_NAME "Agent name" "" ""
-  prompt_text AGENT_PURPOSE "What does ${AGENT_NAME} do?" "" ""
-  prompt_text AGENT_PERSONALITY "Personality / tone (optional — Enter to skip)" "" ""
-  prompt_text AGENT_LANGUAGE "Response language" "English" ""
-  AGENT_KEY=$(derive_agent_key "$AGENT_NAME")
-  export AGENT_PERSONALITY AGENT_LANGUAGE
-  print_step "Agent key: ${AGENT_KEY}"
-}
-
-step_owner() {
-  prompt_text OWNER_NAME "Your name (so the agent knows who you are — Enter to skip)" "" ""
-  prompt_text OWNER_LANG "Your language" "English" ""
-  export OWNER_NAME OWNER_LANG
-}
-
 # ── Step: Web Dashboard admin ID ──────────────────────────────────────────────
 # Separate from channel owner_ids — admin can see ALL agents + ALL conversations.
 # Default: first owner_id entered during channel setup (most likely the operator).
@@ -144,7 +138,7 @@ confirm_summary() {
   printf "\n  ${CYAN}┌${NC}  ${BOLD}Ready to install${NC}\n  ${CYAN}│${NC}\n"
   printf "  ${CYAN}│${NC}  Provider:  %s  (model: %s)\n"    "$PROVIDER"   "$MODEL"
   printf "  ${CYAN}│${NC}  Channels:  %s\n"                 "${ch_types:-?}"
-  printf "  ${CYAN}│${NC}  Agent:     %s  (key: %s)\n"     "$AGENT_NAME" "$AGENT_KEY"
+  printf "  ${CYAN}│${NC}  Agent:     %s\n"                 "$AGENT_NAME"
   printf "  ${CYAN}│${NC}  Admin ID:  %s\n"                "${OWNER_IDS:-?}"
   printf "  ${CYAN}│${NC}  Mode:      %s  |  Features: %s\n" "$MODE"     "${FEATURES:-none}"
   printf "  ${CYAN}│${NC}  Gateway:   http://127.0.0.1:%s\n"  "$PORT_API"
@@ -157,7 +151,6 @@ confirm_summary() {
 # ── Launch sequence ───────────────────────────────────────────────────────────
 launch_stack() {
   local goclaw_dir; goclaw_dir="$(stack_dir "$STACK")/goclaw"
-  local agents_dir; agents_dir="$(stack_dir "$STACK")/agents/${AGENT_KEY}"
 
   prompt_progress "Cloning GoClaw source..." stack_clone_or_pull "$STACK"
 
@@ -194,22 +187,11 @@ launch_stack() {
   prompt_progress "Warming up LLM gateway..." \
     stack_warmup_llm "$STACK" "$PORT_API" "$GOCLAW_GATEWAY_TOKEN" || true
 
-  mkdir -p "$agents_dir"
-  prompt_progress "Generating ${AGENT_NAME}'s identity..." \
-    python3 "${WIZARD_DIR}/scripts/identity-wizard.py" \
-      --mode install --port "$PORT_API" --token "$GOCLAW_GATEWAY_TOKEN" --model "$MODEL" \
-      --agent-name "$AGENT_NAME" --agent-purpose "$AGENT_PURPOSE" \
-      --agent-personality "${AGENT_PERSONALITY:-}" --agent-language "${AGENT_LANGUAGE:-English}" \
-      --owner-name "${OWNER_NAME:-}" --owner-language "${OWNER_LANG:-English}" \
-      --output-dir "$agents_dir" --templates-dir "${WIZARD_DIR}/templates"
-
   # Write initial state.json (ports + meta) NOW — bootstrap_agent reads ports.api from it
   state_write "$STACK" "$(build_state_json)"
 
-  local user_file_arg=""; [[ -f "${agents_dir}/USER.md" ]] && user_file_arg="${agents_dir}/USER.md"
   prompt_progress "Provisioning agent..." \
-    bootstrap_agent "$STACK" "$AGENT_KEY" "$AGENT_NAME" "$CHANNELS_JSON" \
-      "${agents_dir}/SOUL.md" "${agents_dir}/IDENTITY.md" "${user_file_arg:-}"
+    bootstrap_agent "$STACK" "$AGENT_KEY" "$AGENT_NAME" "$CHANNELS_JSON"
 
   send_welcome "$STACK" "$CHANNELS_JSON" "$AGENT_NAME"
 
@@ -231,8 +213,11 @@ print(json.dumps({'key':'${AGENT_KEY}','name':'${AGENT_NAME}','type':'predefined
 
 # ── QuickStart flow (default) ─────────────────────────────────────────────────
 quickstart_flow() {
-  prompt_intro "QuickStart Install  —  5 steps to a working AI agent"
-  preflight; step_provider; step_channels; step_agent; step_owner; step_admin
+  prompt_intro "QuickStart Install  —  4 steps to a working AI agent"
+  step_risk_accept; preflight; step_provider; step_channels; step_admin
+  # Derive agent name from stack name — no identity prompts
+  AGENT_NAME="${STACK^}"; AGENT_KEY=$(derive_agent_key "$AGENT_NAME")
+  export AGENT_NAME AGENT_KEY
   allocate_port_block "$STACK" || exit 1
   generate_stack_secrets "$STACK"
   confirm_summary; launch_stack

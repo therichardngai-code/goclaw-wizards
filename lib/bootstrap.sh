@@ -5,12 +5,12 @@
 # WIZARD_DIR must be set by wizard.sh (directory containing wizard.sh itself)
 WIZARD_DIR="${WIZARD_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
-# --- Main bootstrap: provision agent + restart + health check ---
+# --- Main bootstrap: provision agent + channel instances ---
 # bootstrap_agent <stack> <agent_key> <agent_name> <channels_json>
-#                 <soul_file> <identity_file> [user_file]
+#                 [soul_file] [identity_file] [user_file]  — all optional
 bootstrap_agent() {
   local stack="$1" agent_key="$2" agent_name="$3" channels_json="$4"
-  local soul_file="$5" identity_file="$6" user_file="${7:-}"
+  local soul_file="${5:-}" identity_file="${6:-}" user_file="${7:-}"
 
   local api_port; api_port=$(state_read "$stack" | \
     python3 -c "import sys,json; print(json.load(sys.stdin)['ports']['api'])")
@@ -27,10 +27,10 @@ bootstrap_agent() {
     --token  "$gw_token" \
     --agent-name "$agent_name" \
     --agent-key  "$agent_key" \
-    --soul-file      "$soul_file" \
-    --identity-file  "$identity_file" \
-    ${user_file:+--user-file "$user_file"} \
-    ${OWNER_IDS:+--admin-ids "$OWNER_IDS"} \
+    ${soul_file:+--soul-file     "$soul_file"} \
+    ${identity_file:+--identity-file "$identity_file"} \
+    ${user_file:+--user-file     "$user_file"} \
+    ${OWNER_IDS:+--admin-ids     "$OWNER_IDS"} \
     --channels-json  "$channels_json" 2>&1) || {
     print_error "Agent provisioning failed: ${result}"
     return 1

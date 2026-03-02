@@ -33,29 +33,12 @@ cmd_add_agent() {
   step_channels
 
   prompt_text AGENT_NAME "Agent name" "" ""
-  prompt_text AGENT_PURPOSE "What does ${AGENT_NAME} do?" "" ""
-  prompt_text AGENT_PERSONALITY "Personality / tone (optional — Enter to skip)" "" ""
-  prompt_text AGENT_LANGUAGE "Response language" "English" ""
-  AGENT_KEY=$(derive_agent_key "$AGENT_NAME"); export AGENT_PERSONALITY AGENT_LANGUAGE
+  AGENT_KEY=$(derive_agent_key "$AGENT_NAME")
   print_step "Agent key: ${AGENT_KEY}"
-  prompt_text OWNER_NAME "Your name (so the agent knows who you are — Enter to skip)" "" ""
-  prompt_text OWNER_LANG "Your language" "English" ""
-  export OWNER_NAME OWNER_LANG
+  export AGENT_NAME AGENT_KEY
 
-  local agents_dir; agents_dir="$(stack_dir "$STACK")/agents/${AGENT_KEY}"
-  mkdir -p "$agents_dir"
-  prompt_progress "Generating ${AGENT_NAME}'s identity..." \
-    python3 "${WIZARD_DIR}/scripts/identity-wizard.py" \
-      --mode add-agent --port "$_api_port" --token "$GOCLAW_GATEWAY_TOKEN" --model "default" \
-      --agent-name "$AGENT_NAME" --agent-purpose "$AGENT_PURPOSE" \
-      --agent-personality "${AGENT_PERSONALITY:-}" --agent-language "${AGENT_LANGUAGE:-English}" \
-      --owner-name "${OWNER_NAME:-}" --owner-language "${OWNER_LANG:-English}" \
-      --output-dir "$agents_dir" --templates-dir "${WIZARD_DIR}/templates"
-
-  local user_file_arg=""; [[ -f "${agents_dir}/USER.md" ]] && user_file_arg="${agents_dir}/USER.md"
   prompt_progress "Provisioning ${AGENT_NAME}..." \
-    bootstrap_agent "$STACK" "$AGENT_KEY" "$AGENT_NAME" "$CHANNELS_JSON" \
-      "${agents_dir}/SOUL.md" "${agents_dir}/IDENTITY.md" "${user_file_arg:-}"
+    bootstrap_agent "$STACK" "$AGENT_KEY" "$AGENT_NAME" "$CHANNELS_JSON"
 
   local agent_entry; agent_entry=$(python3 -c "
 import json, datetime
@@ -66,59 +49,10 @@ print(json.dumps({'key':'${AGENT_KEY}','name':'${AGENT_NAME}','type':'predefined
   prompt_outro "$(printf '%s is live!\n  Manage: bash wizard.sh status --name %s' "$AGENT_NAME" "$STACK")"
 }
 
-# ── Reseed agent identity (non-destructive: updates SOUL.md/IDENTITY.md in-place) ──────
+# ── Reseed agent (deprecated — identity files removed) ────────────────────────
 cmd_reseed_agent() {
-  validate_stack_exists; _load_stack_state; secrets_load "$STACK"
-
-  # Select agent if not specified
-  if [[ -z "${AGENT_KEY:-}" ]]; then
-    local agent_arr; mapfile -t agent_arr < <(echo "$_state" | \
-      python3 -c "import sys,json;[print(a['key']) for a in json.load(sys.stdin).get('agents',[])]" 2>/dev/null)
-    [[ ${#agent_arr[@]} -eq 0 ]] && { print_error "No agents found in stack '${STACK}'"; exit 1; }
-    if [[ ${#agent_arr[@]} -eq 1 ]]; then
-      AGENT_KEY="${agent_arr[0]}"
-    else
-      local empty_hints=()
-      prompt_select AGENT_KEY "Which agent to reseed?" agent_arr empty_hints
-    fi
-  fi
-
-  local AGENT_NAME; AGENT_NAME=$(echo "$_state" | python3 -c \
-    "import sys,json; a=next((x for x in json.load(sys.stdin).get('agents',[]) if x['key']=='${AGENT_KEY}'),None); print(a['name'] if a else '${AGENT_KEY}')" 2>/dev/null)
-
-  stack_health_check "$STACK" "$_api_port" 3 2 || {
-    print_error "Stack not running. Start first: bash wizard.sh start --name ${STACK}"; exit 1; }
-
-  prompt_progress "Warming up LLM..." stack_warmup_llm "$STACK" "$_api_port" "$GOCLAW_GATEWAY_TOKEN" || true
-
-  prompt_text AGENT_PURPOSE "What does ${AGENT_NAME} do?" "" ""
-  prompt_text AGENT_PERSONALITY "Personality / tone (optional — Enter to skip)" "" ""
-  prompt_text AGENT_LANGUAGE "Response language" "English" ""
-  prompt_text OWNER_NAME "Your name (so the agent knows who you are — Enter to skip)" "" ""
-  prompt_text OWNER_LANG "Your language" "English" ""
-
-  local agents_dir; agents_dir="$(stack_dir "$STACK")/agents/${AGENT_KEY}"
-  mkdir -p "$agents_dir"
-
-  prompt_progress "Regenerating ${AGENT_NAME}'s identity..." \
-    python3 "${WIZARD_DIR}/scripts/identity-wizard.py" \
-      --mode add-agent --port "$_api_port" --token "$GOCLAW_GATEWAY_TOKEN" --model "default" \
-      --agent-name "$AGENT_NAME" --agent-purpose "$AGENT_PURPOSE" \
-      --agent-personality "${AGENT_PERSONALITY:-}" --agent-language "${AGENT_LANGUAGE:-English}" \
-      --owner-name "${OWNER_NAME:-}" --owner-language "${OWNER_LANG:-English}" \
-      --output-dir "$agents_dir" --templates-dir "${WIZARD_DIR}/templates"
-
-  local user_file_arg=""; [[ -f "${agents_dir}/USER.md" ]] && user_file_arg="${agents_dir}/USER.md"
-  prompt_progress "Updating ${AGENT_NAME}'s files (no delete/recreate)..." \
-    python3 "${WIZARD_DIR}/scripts/provision-agent.py" \
-      --action update-files --port "$_api_port" --token "$GOCLAW_GATEWAY_TOKEN" \
-      --agent-key "$AGENT_KEY" \
-      --soul-file     "${agents_dir}/SOUL.md" \
-      --identity-file "${agents_dir}/IDENTITY.md" \
-      ${user_file_arg:+--user-file "$user_file_arg"}
-
-  # PR #29: cache invalidated server-side on agents.files.set — no restart needed
-  print_success "Agent '${AGENT_NAME}' identity updated — owner profile now in SOUL.md"
+  print_info "reseed-agent: SOUL.md / IDENTITY.md / USER.md are no longer generated by the wizard."
+  print_info "To add a channel to an existing agent, use: bash wizard.sh channels add --name ${STACK}"
 }
 
 # ── Remove agent ──────────────────────────────────────────────────────────────
