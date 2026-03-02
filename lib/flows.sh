@@ -141,7 +141,6 @@ confirm_summary() {
   printf "  ${CYAN}│${NC}  Provider:  %s  (model: %s)\n"    "$PROVIDER"   "$MODEL"
   printf "  ${CYAN}│${NC}  Channels:  %s\n"                 "${ch_types:-?}"
   printf "  ${CYAN}│${NC}  Agent:     %s\n"                 "$AGENT_NAME"
-  printf "  ${CYAN}│${NC}  Admin ID:  %s\n"                "${OWNER_IDS:-?}"
   printf "  ${CYAN}│${NC}  Mode:      %s  |  Features: %s\n" "$MODE"     "${FEATURES:-none}"
   printf "  ${CYAN}│${NC}  Gateway:   http://127.0.0.1:%s\n"  "$PORT_API"
   [[ "$FEATURES" == *"ui"* ]] && printf "  ${CYAN}│${NC}  Dashboard: http://127.0.0.1:%s\n" "$PORT_UI"
@@ -166,10 +165,6 @@ launch_stack() {
   [[ -n "${FLAG_ENCRYPTION_KEY:-}" ]] && GOCLAW_ENCRYPTION_KEY="$FLAG_ENCRYPTION_KEY"
   [[ -n "${FLAG_GATEWAY_PORT:-}"   ]] && PORT_API="$FLAG_GATEWAY_PORT"
 
-  # OWNER_IDS must be set before this point — either by step_admin() (interactive)
-  # or by map_flags_to_config() (non-interactive). It is NOT derived from CHANNELS_JSON
-  # because channel owner_ids = who can DM the bot, which is different from
-  # GOCLAW_OWNER_IDS = who gets Web Dashboard admin access (sees ALL agents + conversations).
   local env_file; env_file=$(stack_generate_env "$STACK")
   trap "stack_cleanup_env '${STACK}'" EXIT
 
@@ -204,7 +199,8 @@ print(json.dumps({'key':'${AGENT_KEY}','name':'${AGENT_NAME}','type':'predefined
   'channels':[c['type'] for c in ch],'created_at':datetime.datetime.now(datetime.timezone.utc).isoformat()}))" 2>/dev/null)
   [[ -n "$agent_entry" ]] && state_update_agents "$STACK" "$agent_entry"
 
-  local _first_owner; _first_owner=$(echo "${OWNER_IDS:-}" | cut -d',' -f1)
+  local _first_owner; _first_owner=$(echo "${CHANNELS_JSON:-[]}" | \
+    python3 -c "import sys,json; ch=json.load(sys.stdin); print(next((o for c in ch for o in c.get('owner_ids',[]) if o),''))" 2>/dev/null || true)
   local _token_hint;  _token_hint="${GOCLAW_GATEWAY_TOKEN:0:8}…"
   local _secrets_path; _secrets_path="$(stack_dir "$STACK")/.secrets"
   prompt_outro "$(printf '%s is live!\n\n  Gateway:   http://127.0.0.1:%s\n  Dashboard: http://127.0.0.1:%s\n\n  Web UI Login:\n    User ID:       %s\n    Gateway Token: %s\n    (full token in: %s)\n\n  Add agent: bash wizard.sh add-agent --name %s\n  Diagnose:  bash wizard.sh doctor  --name %s' \
@@ -216,7 +212,7 @@ print(json.dumps({'key':'${AGENT_KEY}','name':'${AGENT_NAME}','type':'predefined
 # ── QuickStart flow (default) ─────────────────────────────────────────────────
 quickstart_flow() {
   prompt_intro "QuickStart Install  —  4 steps to a working AI agent"
-  step_risk_accept; preflight; step_provider; step_channels; step_admin
+  step_risk_accept; preflight; step_provider; step_channels
   # Derive agent key from stack name, avoiding the reserved id "default"
   local _base; _base="${STACK^}"
   [[ "${STACK}" == "default" ]] && _base="GoClaw"
