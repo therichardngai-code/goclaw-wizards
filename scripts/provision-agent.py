@@ -198,14 +198,30 @@ def main():
             soul     = open(args.soul_file).read()     if args.soul_file     else ""
             identity = open(args.identity_file).read() if args.identity_file else ""
             user     = open(args.user_file).read()     if args.user_file     else None
-            # Pre-delete stale agent from DB (dirty reinstall: agent exists in Postgres
-            # from a previous run that failed after agents.create but state.json was reset).
+            # Pre-delete stale wizard agent from DB (dirty reinstall).
             # Idempotent: if agent doesn't exist, delete_agent returns NOT_FOUND — caught here.
             if args.agent_key:
                 try:
                     delete_agent(ws, args.agent_key)
                 except Exception:
                     pass  # expected on fresh install
+
+            # Purge GoClaw auto-onboard default agent + its channel instances.
+            # GoClaw seeds a "default" open-agent on container first-start (auto-onboard).
+            # This creates a channel instance with the same bot token BEFORE the wizard runs,
+            # causing two agents to share the same Telegram/Discord bot → duplicate routing.
+            # Fix: remove default agent's channels first (silent — "default" id may be reserved
+            # and block agents.delete, but channel instance deletion always works).
+            if args.agent_key != "default":
+                for inst in list_channels_for_key(ws, "default"):
+                    try:
+                        ws.call("channels.instances.delete", {"id": str(inst["id"])})
+                    except Exception:
+                        pass
+                try:
+                    ws.call("agents.delete", {"agentId": "default"})
+                except Exception:
+                    pass  # reserved id — channel cleanup above is sufficient
             # agent.owner_id = admin IDs (--admin-ids flag) so the wizard operator can
             # edit context files in the Web Dashboard (frontend: agent.owner_id === userId).
             # Channel owner_ids are used only for channel.allow_from (who can DM the bot).
