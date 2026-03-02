@@ -150,6 +150,22 @@ launch_stack() {
   [[ -n "${FLAG_ENCRYPTION_KEY:-}" ]] && GOCLAW_ENCRYPTION_KEY="$FLAG_ENCRYPTION_KEY"
   [[ -n "${FLAG_GATEWAY_PORT:-}"   ]] && PORT_API="$FLAG_GATEWAY_PORT"
 
+  # Extract unique owner IDs from all channel definitions → GOCLAW_OWNER_IDS in Docker env.
+  # CHANNELS_JSON holds owner_ids per channel (e.g. Telegram user ID, Discord user ID).
+  # Without this, OWNER_IDS is always empty → no user has REST API superuser access →
+  # all write operations in the Web UI are rejected with 403 Forbidden.
+  OWNER_IDS=$(echo "$CHANNELS_JSON" | python3 -c "
+import sys, json
+channels = json.load(sys.stdin)
+ids = list(dict.fromkeys(
+    oid for ch in channels
+    for oid in ch.get('owner_ids', [])
+    if oid
+))
+print(','.join(ids))
+" 2>/dev/null)
+  export OWNER_IDS
+
   local env_file; env_file=$(stack_generate_env "$STACK")
   trap "stack_cleanup_env '${STACK}'" EXIT
 
@@ -195,8 +211,13 @@ print(json.dumps({'key':'${AGENT_KEY}','name':'${AGENT_NAME}','type':'predefined
   'channels':[c['type'] for c in ch],'created_at':datetime.datetime.now(datetime.timezone.utc).isoformat()}))" 2>/dev/null)
   [[ -n "$agent_entry" ]] && state_update_agents "$STACK" "$agent_entry"
 
-  prompt_outro "$(printf '%s is live!\n\n  Gateway:   http://127.0.0.1:%s\n  Dashboard: http://127.0.0.1:%s\n\n  Add agent: bash wizard.sh add-agent --name %s\n  Diagnose:  bash wizard.sh doctor  --name %s' \
-    "$AGENT_NAME" "$PORT_API" "$PORT_UI" "$STACK" "$STACK")"
+  local _first_owner; _first_owner=$(echo "${OWNER_IDS:-}" | cut -d',' -f1)
+  local _token_hint;  _token_hint="${GOCLAW_GATEWAY_TOKEN:0:8}…"
+  local _secrets_path; _secrets_path="$(stack_dir "$STACK")/.secrets"
+  prompt_outro "$(printf '%s is live!\n\n  Gateway:   http://127.0.0.1:%s\n  Dashboard: http://127.0.0.1:%s\n\n  Web UI Login:\n    User ID:       %s\n    Gateway Token: %s\n    (full token in: %s)\n\n  Add agent: bash wizard.sh add-agent --name %s\n  Diagnose:  bash wizard.sh doctor  --name %s' \
+    "$AGENT_NAME" "$PORT_API" "$PORT_UI" \
+    "${_first_owner:-(none)}" "$_token_hint" "$_secrets_path" \
+    "$STACK" "$STACK")"
 }
 
 # ── QuickStart flow (default) ─────────────────────────────────────────────────

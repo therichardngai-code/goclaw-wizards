@@ -145,6 +145,7 @@ print(json.dumps({
   'port_block':   ${PORT_BLOCK:-0},
   'ports':        {'api': ${PORT_API:-18790}, 'ui': ${PORT_UI:-3000},
                    'pg': ${PORT_PG:-5432}, 'jaeger': ${PORT_JAEGER:-16686}},
+  'owner_ids':    [x for x in '${OWNER_IDS:-}'.split(',') if x],
   'agents':       [],
   'installed_at': datetime.datetime.now(datetime.timezone.utc).isoformat()
 }, indent=2))
