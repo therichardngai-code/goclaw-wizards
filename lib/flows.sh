@@ -217,8 +217,10 @@ print(json.dumps({'key':'${AGENT_KEY}','name':'${AGENT_NAME}','type':'predefined
 quickstart_flow() {
   prompt_intro "QuickStart Install  —  4 steps to a working AI agent"
   step_risk_accept; preflight; step_provider; step_channels; step_admin
-  # Derive agent name from stack name — no identity prompts
-  AGENT_NAME="${STACK^}"; AGENT_KEY=$(derive_agent_key "$AGENT_NAME")
+  # Derive agent key from stack name, avoiding the reserved id "default"
+  local _base; _base="${STACK^}"
+  [[ "${STACK}" == "default" ]] && _base="GoClaw"
+  AGENT_NAME="$_base"; AGENT_KEY=$(derive_agent_key "$AGENT_NAME")
   export AGENT_NAME AGENT_KEY
   allocate_port_block "$STACK" || exit 1
   generate_stack_secrets "$STACK"
